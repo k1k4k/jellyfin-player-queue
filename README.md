@@ -6,7 +6,7 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 
 ## Ce que ça fait
 
-- Ajoute un bouton ![playlist_play](https://img.shields.io/badge/-%E2%96%B6%20playlist__play-333) à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
+- Ajoute un bouton <img src="docs/playlist_play.svg" width="22" height="22" alt="playlist_play" align="absmiddle"> à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
 - **Série** (quel que soit le point de départ : série, saison, épisode, « Lire à partir d'ici ») : le panneau affiche la **saison en cours**, épisodes précédents compris, avec `◀ Saison N ▶` et une liste déroulante pour changer de saison. L'épisode en cours est surligné, coche « vu », barre de progression, vignettes.
 - Un clic sur un épisode → lecture immédiate. Si l'épisode est déjà dans la file (les suivants), la file est conservée ; sinon (épisode précédent, autre saison) une nouvelle file « à partir d'ici » est construite jusqu'à la fin de la série, **toutes saisons confondues** : la lecture enchaîne bien sur la saison suivante. Le réglage Jellyfin « Lire automatiquement l'épisode suivant » reste respecté.
 - Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche.

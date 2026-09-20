@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" role="img" aria-label="playlist_play">
+  <rect width="28" height="28" rx="6" fill="#202020"/>
+  <!-- Material Icons "playlist_play" (Apache 2.0), centered -->
+  <path transform="translate(2 2)" fill="#ffffff" d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z"/>
+</svg>
