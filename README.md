@@ -1,4 +1,4 @@
-# Jellyfin Queue OSD
+# Jellyfin Playlist
 
 Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une série, la saison en cours avec navigation entre saisons « à la Netflix » ; sinon la file de lecture. Un clic lance l'épisode voulu sans quitter le lecteur.
 
