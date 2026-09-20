@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Playlist — v0.3.0
+ * Jellyfin Playlist — v0.3.1
  * https://github.com/k1k4k/jellyfin-playlist
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.3.0';
+    var VERSION = '0.3.1';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[JellyfinPlaylist]';
@@ -675,7 +675,89 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /*  6. Init                                                            */
+    /*  6. Collections : lecture dans l'ordre chronologique                */
+    /* ------------------------------------------------------------------ */
+
+    // jellyfin-web lance une collection (BoxSet) sans SortBy : l'ordre est celui
+    // de la base (souvent l'ordre d'ajout). On intercepte playbackManager.play()
+    // et, pour une collection lancée sans aléatoire, on fournit nous-mêmes la
+    // liste triée par date de sortie (PremiereDate, puis année, puis nom).
+
+    function chronoKey(item) {
+        if (item.PremiereDate) return item.PremiereDate;
+        if (item.ProductionYear) return item.ProductionYear + '-00-00';
+        return '9999-99-99';
+    }
+
+    function fetchBoxSetChronological(boxSetId) {
+        var api = window.ApiClient;
+        if (!api || typeof api.getItems !== 'function') return Promise.reject(new Error('no ApiClient'));
+        return api.getItems(api.getCurrentUserId(), {
+            ParentId: boxSetId,
+            Recursive: true,
+            Filters: 'IsNotFolder',
+            MediaTypes: 'Video,Audio',
+            Fields: 'Chapters,Trickplay,MediaSources,PremiereDate,ProductionYear,SortName',
+            SortBy: 'PremiereDate,ProductionYear,SortName',
+            SortOrder: 'Ascending',
+            EnableTotalRecordCount: false,
+            CollapseBoxSetItems: false
+        }).then(function (result) {
+            var items = (result && result.Items) || [];
+            // tri stable côté client : le serveur peut placer les dates manquantes n'importe où
+            return items.map(function (it, i) { return { it: it, i: i, k: chronoKey(it) + '|' + (it.SortName || it.Name || '') }; })
+                .sort(function (a, b) { return a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i; })
+                .map(function (x) { return x.it; });
+        });
+    }
+
+    // Renvoie une promesse vers l'id de la collection lancée, ou null si ce n'est pas le cas.
+    function detectBoxSet(options) {
+        if (!options || options.shuffle) return null;
+        var items = options.items;
+        if (items && items.length === 1 && items[0] && items[0].Type === 'BoxSet') {
+            return Promise.resolve(items[0].Id);
+        }
+        var ids = options.ids;
+        if (!items && ids && ids.length === 1 && window.ApiClient && typeof window.ApiClient.getItem === 'function') {
+            return window.ApiClient.getItem(window.ApiClient.getCurrentUserId(), ids[0]).then(function (it) {
+                return it && it.Type === 'BoxSet' ? it.Id : null;
+            });
+        }
+        return null;
+    }
+
+    function installBoxSetOrdering() {
+        if (!pm || pm.__jfPlaylistPlayWrapped || typeof pm.play !== 'function') return;
+        var origPlay = pm.play;
+        pm.play = function (options) {
+            var self = this;
+            var args = arguments;
+            var detect = null;
+            try { detect = detectBoxSet(options); } catch (e) { detect = null; }
+            if (!detect) return origPlay.apply(self, args);
+            return detect.then(function (boxSetId) {
+                if (!boxSetId) return origPlay.apply(self, args);
+                return fetchBoxSetChronological(boxSetId).then(function (sorted) {
+                    if (!sorted.length) return origPlay.apply(self, args);
+                    var o = {};
+                    for (var k in options) if (Object.prototype.hasOwnProperty.call(options, k)) o[k] = options[k];
+                    delete o.ids;
+                    o.items = sorted;
+                    o.startIndex = 0;
+                    console.debug(TAG, 'collection ' + boxSetId + ' : ' + sorted.length + ' éléments en ordre chronologique');
+                    return origPlay.call(self, o);
+                });
+            }).catch(function (err) {
+                console.warn(TAG, 'ordre chronologique impossible, lecture normale', err);
+                return origPlay.apply(self, args);
+            });
+        };
+        pm.__jfPlaylistPlayWrapped = true;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  7. Init                                                            */
     /* ------------------------------------------------------------------ */
 
     function init() {
@@ -683,6 +765,7 @@
         getWebpackRequire().then(waitForPlaybackManager).then(function (found) {
             pm = found;
             window.__jfQueueOsd.playbackManager = pm;
+            installBoxSetOrdering();
             console.debug(TAG, 'v' + VERSION + ' – playbackManager found');
             if (document.body) watchForOsd();
             else document.addEventListener('DOMContentLoaded', watchForOsd);
