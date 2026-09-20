@@ -33,6 +33,8 @@ Trois méthodes, de la plus simple à la plus manuelle. Dans tous les cas, recha
 
 Copie le `.js` dans le dossier web de Jellyfin et ajoute une balise `<script>` dans `index.html` (sauvegarde `index.html.queueosd.bak` créée la première fois). Relancer le script après une mise à jour de Jellyfin, qui écrase `index.html`.
 
+Si `index.html` n'est pas réinscriptible mais que le dossier l'est (cas typique : Jellyfin sous Linux, dossier web exposé en partage Samba, `index.html` appartenant à root), `install.ps1` met l'original de côté en `index.html.queueosd.orig` et en crée un nouveau ; `-Uninstall` le restaure.
+
 **Windows (PowerShell)**
 
 ```powershell

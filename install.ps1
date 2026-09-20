@@ -43,19 +43,52 @@ if (-not $WebDir) {
 
 $IndexPath = Join-Path $WebDir 'index.html'
 $BackupPath = Join-Path $WebDir 'index.html.queueosd.bak'
+$OrigPath   = Join-Path $WebDir 'index.html.queueosd.orig'
+$NewPath    = Join-Path $WebDir 'index.html.queueosd.new'
 $TargetJs  = Join-Path $WebDir $ScriptName
+$Utf8NoBom = New-Object Text.UTF8Encoding($false)
 
 if (-not (Test-Path $IndexPath)) { throw "index.html introuvable dans $WebDir" }
+
+# Écrit index.html. Si le fichier n'est pas réinscriptible (ex. partage Samba où
+# index.html appartient à root mais le dossier est accessible en écriture), on
+# écrit d'abord un .new, on met l'original de côté en .orig, puis on renomme :
+# le site n'est jamais sans index.html.
+function Write-Index([string]$content) {
+    try {
+        [IO.File]::WriteAllText($IndexPath, $content, $Utf8NoBom)
+        return
+    } catch [System.UnauthorizedAccessException] {
+        Write-Host "index.html non réinscriptible directement, remplacement par renommage..." -ForegroundColor Yellow
+    }
+    [IO.File]::WriteAllText($NewPath, $content, $Utf8NoBom)
+    if (Test-Path $OrigPath) { Remove-Item $OrigPath -Force }
+    Move-Item -Path $IndexPath -Destination $OrigPath -Force
+    Move-Item -Path $NewPath -Destination $IndexPath -Force
+    Write-Host "Original conservé : $OrigPath"
+}
 
 $html = Get-Content -Path $IndexPath -Raw -Encoding UTF8
 
 if ($Uninstall) {
-    $newHtml = [regex]::Replace($html, '<script[^>]*' + [regex]::Escape($Marker) + '[^>]*></script>', '')
-    if ($newHtml -ne $html) {
-        [IO.File]::WriteAllText($IndexPath, $newHtml, (New-Object Text.UTF8Encoding($false)))
-        Write-Host "Balise <script> retirée de index.html"
+    $installed = $html -match [regex]::Escape($Marker)
+    if ((Test-Path $OrigPath) -and -not $installed) {
+        # index.html a été remplacé depuis (mise à jour Jellyfin) : le .orig est périmé
+        Remove-Item $OrigPath -Force
+        Write-Host "index.html ne contient plus la balise ; $OrigPath (périmé) supprimé"
+    } elseif (Test-Path $OrigPath) {
+        # installation faite par renommage : on remet l'original tel quel
+        Remove-Item $IndexPath -Force
+        Move-Item -Path $OrigPath -Destination $IndexPath -Force
+        Write-Host "index.html original restauré depuis $OrigPath"
     } else {
-        Write-Host "Aucune balise à retirer dans index.html"
+        $newHtml = [regex]::Replace($html, '<script[^>]*' + [regex]::Escape($Marker) + '[^>]*></script>', '')
+        if ($newHtml -ne $html) {
+            Write-Index $newHtml
+            Write-Host "Balise <script> retirée de index.html"
+        } else {
+            Write-Host "Aucune balise à retirer dans index.html"
+        }
     }
     if (Test-Path $TargetJs) { Remove-Item $TargetJs -Force; Write-Host "Supprimé : $TargetJs" }
     Write-Host "Désinstallation terminée." -ForegroundColor Green
@@ -77,7 +110,7 @@ if ($html -match [regex]::Escape($Marker)) {
     # déjà installé : on met juste la version à jour
     $newHtml = [regex]::Replace($html, '<script[^>]*' + [regex]::Escape($Marker) + '[^>]*></script>', $tag)
     if ($newHtml -ne $html) {
-        [IO.File]::WriteAllText($IndexPath, $newHtml, (New-Object Text.UTF8Encoding($false)))
+        Write-Index $newHtml
         Write-Host "index.html : balise mise à jour (v$version)"
     } else {
         Write-Host "index.html : déjà à jour"
@@ -89,7 +122,7 @@ if ($html -match [regex]::Escape($Marker)) {
     }
     if ($html -notmatch '</head>') { throw "index.html inattendu : pas de </head>" }
     $newHtml = $html -replace '</head>', ($tag + '</head>')
-    [IO.File]::WriteAllText($IndexPath, $newHtml, (New-Object Text.UTF8Encoding($false)))
+    Write-Index $newHtml
     Write-Host "index.html : balise ajoutée (v$version)"
 }
 
