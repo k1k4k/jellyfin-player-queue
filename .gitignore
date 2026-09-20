@@ -1,2 +1,9 @@
 # copie locale du build jellyfin-web (banc de test)
 web-dev/
+
+# build
+Jellyfin.Plugin.QueueOsd/bin/
+Jellyfin.Plugin.QueueOsd/obj/
+dist/
+out/
+test-jellyfin/

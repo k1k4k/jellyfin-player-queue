@@ -22,15 +22,27 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 
 ## Installation
 
-Trois méthodes, de la plus simple à la plus manuelle. Dans tous les cas, rechargez la page Jellyfin avec `Ctrl+F5` après l'installation.
+Quatre méthodes, de la plus simple à la plus manuelle. Dans tous les cas, rechargez la page Jellyfin avec `Ctrl+F5` après l'installation.
 
-### 1. Plugin « JavaScript Injector » (recommandé, survit aux mises à jour)
+### 1. Plugin Queue OSD (recommandé)
+
+Un vrai plugin Jellyfin : le script est embarqué dans le plugin, servi par le serveur et injecté dans `index.html` **à la volée** (aucune écriture sur le disque, rien à refaire après une mise à jour de Jellyfin, pas de problème de permissions Docker). Mises à jour via le tableau de bord.
+
+1. Tableau de bord → Plugins → Dépôts → « + » et ajoutez l'URL correspondant à votre version de Jellyfin :
+   - **Jellyfin 12.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest.json`
+   - **Jellyfin 10.11.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest-10.11.json`
+2. Catalogue → **Queue OSD** → Installer, puis redémarrez Jellyfin.
+3. `Ctrl+F5` dans le navigateur. La page de configuration du plugin (Tableau de bord → Plugins → Queue OSD) permet de désactiver le bouton sans désinstaller.
+
+Installation manuelle du plugin : téléchargez le zip de la [dernière release](https://github.com/k1k4k/jellyfin-playlist/releases) (`_jf12` pour Jellyfin 12, `_jf10` pour 10.11), dézippez-le dans `<config>/plugins/QueueOsd/` et redémarrez.
+
+### 2. Plugin « JavaScript Injector »
 
 1. Dans Jellyfin → Tableau de bord → Plugins → Dépôts, ajoutez le dépôt de [Jellyfin-JavaScript-Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) (voir leur README : il y a une URL de manifeste spécifique pour Jellyfin 12).
 2. Installez le plugin **JavaScript Injector** (et idéalement [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation), que l'injecteur utilise pour ne pas toucher à `index.html`). Redémarrez Jellyfin.
 3. Dans la configuration du plugin, ajoutez un script, collez le contenu complet de [`jellyfin-queue-osd.js`](jellyfin-queue-osd.js), enregistrez.
 
-### 2. Script d'installation (Windows / Linux / Docker)
+### 3. Script d'installation (Windows / Linux / Docker)
 
 Copie le `.js` dans le dossier web de Jellyfin et ajoute une balise `<script>` dans `index.html` (sauvegarde `index.html.queueosd.bak` créée la première fois). Relancer le script après une mise à jour de Jellyfin, qui écrase `index.html`.
 
@@ -55,7 +67,7 @@ docker cp jellyfin-queue-osd.js jellyfin:/jellyfin/jellyfin-web/   # image offic
 docker exec jellyfin sh -c 'cd /jellyfin/jellyfin-web && sed -i "s#</head>#<script defer src=\"jellyfin-queue-osd.js\"></script></head>#" index.html'
 ```
 
-### 3. À la main
+### 4. À la main
 
 1. Copiez `jellyfin-queue-osd.js` dans le dossier web de Jellyfin (celui qui contient `index.html`).
 2. Dans `index.html`, juste avant `</head>`, ajoutez :
@@ -76,11 +88,28 @@ Lancez une saison, une playlist, ou « Lire à partir d'ici » sur un épisode. 
 
 ## Développement
 
+### Script client
+
 `web-dev/` (non versionné) est une copie du build jellyfin-web servie en local avec `config.json` pointant vers un vrai serveur Jellyfin : le client local parle à l'API distante, le serveur n'est pas modifié.
 
 ```powershell
 python -m http.server 8098 --directory web-dev --bind 127.0.0.1
 ```
+
+### Plugin
+
+`Jellyfin.Plugin.QueueOsd/` — .NET, une même source pour deux cibles : `-p:JellyfinTarget=jf12` (Jellyfin 12, .NET 10, défaut) et `jf10` (Jellyfin 10.11, .NET 9). Le fichier `jellyfin-queue-osd.js` à la racine est embarqué tel quel. Sans SDK local, via Docker :
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet build Jellyfin.Plugin.QueueOsd/Jellyfin.Plugin.QueueOsd.csproj -c Release -o out/jf12
+```
+
+Pour tester : copier `out/jf12/Jellyfin.Plugin.QueueOsd.dll` dans `<config>/plugins/QueueOsd_x/` d'un Jellyfin 12 jetable (`docker run -p 8097:8096 -v ./test-jellyfin/config:/config jellyfin/jellyfin:12.1`), puis `curl localhost:8097/web/index.html | grep queue-osd`.
+
+### Publier une version
+
+1. Mettre à jour `VERSION` dans `jellyfin-queue-osd.js` et `<Version>`/`<AssemblyVersion>` dans le csproj.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` — le workflow **Release** compile les deux cibles, publie la release GitHub avec les zips, et met à jour `manifest.json` / `manifest-10.11.json` sur `main` (les serveurs qui ont le dépôt voient la mise à jour).
 
 ## Licence
 
@@ -94,4 +123,4 @@ Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the
 
 Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
 
-**Install**: either paste the content of `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin (recommended, survives updates), or run `install.ps1` / `install.sh` (copies the file into the web folder and adds a `<script>` tag to `index.html`; re-run after a Jellyfin update), or do it by hand. Reload with `Ctrl+F5`.
+**Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Queue OSD** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.
