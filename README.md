@@ -1,15 +1,16 @@
 # Jellyfin Queue OSD
 
-Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : voir les épisodes suivants (ou le contenu de la playlist en cours) et lancer directement celui que vous voulez, sans quitter le lecteur.
+Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une série, la saison en cours avec navigation entre saisons « à la Netflix » ; sinon la file de lecture. Un clic lance l'épisode voulu sans quitter le lecteur.
 
-*A "play queue" button for the Jellyfin web video player: see what's up next and jump to any item without leaving the player. English summary at the bottom.*
+*A "play queue" button for the Jellyfin web video player: for a series, the current season with Netflix-style season navigation; otherwise the play queue. Click any item to play it without leaving the player. English summary at the bottom.*
 
 ## Ce que ça fait
 
 - Ajoute un bouton ![playlist_play](https://img.shields.io/badge/-%E2%96%B6%20playlist__play-333) à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
-- Le panneau liste la file de lecture courante : c'est celle que Jellyfin construit tout seul quand vous lancez une saison, faites « Lire à partir d'ici », lancez une playlist, ou simplement un épisode avec la lecture auto du suivant.
-- Élément en cours surligné, éléments déjà vus grisés, coche « vu », barre de progression, vignettes.
-- Un clic sur un élément → lecture immédiate, la file reste la même (les suivants s'enchaînent normalement).
+- **Série** (quel que soit le point de départ : série, saison, épisode, « Lire à partir d'ici ») : le panneau affiche la **saison en cours**, épisodes précédents compris, avec `◀ Saison N ▶` et une liste déroulante pour changer de saison. L'épisode en cours est surligné, coche « vu », barre de progression, vignettes.
+- Un clic sur un épisode → lecture immédiate. Si l'épisode est déjà dans la file (les suivants), la file est conservée ; sinon (épisode précédent, autre saison) une nouvelle file « à partir d'ici » est construite jusqu'à la fin de la série, **toutes saisons confondues** : la lecture enchaîne bien sur la saison suivante. Le réglage Jellyfin « Lire automatiquement l'épisode suivant » reste respecté.
+- Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche.
+- **Autre contenu** (film dans une playlist, musique…) : vue « file de lecture » classique. Un bouton dans l'en-tête permet aussi de basculer sur la file brute pour une série.
 - Interface en français ou en anglais selon la langue du navigateur.
 
 ## Compatibilité
@@ -70,7 +71,8 @@ Lancez une saison, une playlist, ou « Lire à partir d'ici » sur un épisode. 
 
 - **Pas d'icône dans le lecteur** : ouvrez la console du navigateur (F12). Vous devez voir `[QueueOSD] v… – playbackManager found`. Si vous voyez `playbackManager not found`, la version de jellyfin-web n'est pas reconnue — ouvrez une issue avec votre version.
 - **Le script n'est pas chargé du tout** (rien dans la console) : vérifiez que `index.html` contient bien la balise, et videz le cache (`Ctrl+F5`). Après une mise à jour de Jellyfin, relancez l'installation.
-- **« Aucun élément dans la file »** : vous avez lancé un film seul, ou un épisode sans lecture auto du suivant. Lancez la saison ou utilisez « Lire à partir d'ici ».
+- **« Aucun élément dans la file »** : vous avez lancé un film seul (pas de série, pas de playlist).
+- **Pas de saisons, juste la file** : la console affiche `[QueueOSD] refresh {...}` avec `mode: "queue"` — l'élément en cours n'est pas reconnu comme épisode d'une série ; ouvrez une issue avec cette ligne.
 
 ## Développement
 
@@ -88,7 +90,7 @@ MIT — voir [LICENSE](LICENSE).
 
 ## English
 
-Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the settings gear. The panel shows the current queue (next episodes when you play a season, "Play from here", a playlist, or a single episode with auto-play next), highlights the current item, and lets you click any item to play it right away without leaving the player.
+Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the settings gear. For a series it shows the **current season** (previous episodes included) with `◀ Season N ▶` navigation and a season dropdown; clicking an episode plays it right away. Episodes already in the queue are jumped to in place; others (previous episodes, other seasons) start a new "play from here" queue up to the end of the series, across seasons, so playback continues into the next season. For non-series content it lists the play queue.
 
 Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
 
