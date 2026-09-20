@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/icon.png",
     "versions": [
       {
+        "version": "0.3.1.0",
+        "changelog": "https://github.com/k1k4k/jellyfin-playlist/releases/tag/v0.3.1",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-playlist/releases/download/v0.3.1/jellyfin-playlist_0.3.1.0_jf10.zip",
+        "checksum": "bc2ea73220f9e8515ef26a0c7fd8e99c",
+        "timestamp": "2026-09-20T14:44:54Z"
+      },
+      {
         "version": "0.3.0.0",
         "changelog": "https://github.com/k1k4k/jellyfin-playlist/releases/tag/v0.3.0",
         "targetAbi": "10.11.0.0",
