@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Queue OSD — v0.3.0
+ * Jellyfin Playlist — v0.3.0
  * https://github.com/k1k4k/jellyfin-playlist
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -28,7 +28,7 @@
     var VERSION = '0.3.0';
     window.__jfQueueOsd = { version: VERSION };
 
-    var TAG = '[QueueOSD]';
+    var TAG = '[JellyfinPlaylist]';
     var pm = null;            // playbackManager (singleton)
     var panel = null;
     var refreshTimer = null;

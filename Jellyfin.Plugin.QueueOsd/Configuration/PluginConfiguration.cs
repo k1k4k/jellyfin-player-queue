@@ -2,7 +2,7 @@ using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.QueueOsd.Configuration;
 
-/// <summary>Configuration du plugin (Tableau de bord → Plugins → Queue OSD).</summary>
+/// <summary>Configuration du plugin (Tableau de bord → Plugins → Jellyfin Playlist).</summary>
 public class PluginConfiguration : BasePluginConfiguration
 {
     /// <summary>

@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Installe (ou désinstalle) Jellyfin Queue OSD dans le dossier web de Jellyfin.
+    Installe (ou désinstalle) Jellyfin Playlist dans le dossier web de Jellyfin.
 
 .DESCRIPTION
     - Copie jellyfin-queue-osd.js dans le dossier web

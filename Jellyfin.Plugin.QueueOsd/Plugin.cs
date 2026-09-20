@@ -9,7 +9,7 @@ using MediaBrowser.Model.Serialization;
 namespace Jellyfin.Plugin.QueueOsd;
 
 /// <summary>
-/// Queue OSD : ajoute un bouton "file de lecture / saisons" au lecteur vidéo web de Jellyfin.
+/// Jellyfin Playlist : ajoute un bouton "file de lecture / saisons" au lecteur vidéo web de Jellyfin.
 /// Le script client (jellyfin-queue-osd.js) est embarqué dans la DLL, servi par
 /// <see cref="Controllers.QueueOsdController"/> et injecté dans index.html à la volée par
 /// <see cref="Services.ScriptInjectionStartupFilter"/>. Rien n'est écrit sur le disque.
@@ -30,7 +30,7 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
     public static Plugin? Instance { get; private set; }
 
-    public override string Name => "Queue OSD";
+    public override string Name => "Jellyfin Playlist";
 
     public override Guid Id => Guid.Parse("ae203062-4b00-4c07-a7f6-83e69982d951");
 
