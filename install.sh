@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Installe (ou désinstalle) Jellyfin Playlist dans le dossier web de Jellyfin.
+# Installe (ou désinstalle) Jellyfin Player Queue dans le dossier web de Jellyfin.
 #
 #   ./install.sh                      # détection automatique du dossier web
 #   ./install.sh /usr/share/jellyfin/web

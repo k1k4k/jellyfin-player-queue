@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Jellyfin Playlist</title>
+    <title>Jellyfin Player Queue</title>
 </head>
 <body>
     <div id="QueueOsdConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
@@ -9,7 +9,7 @@
             <div class="content-primary">
                 <form id="QueueOsdConfigForm">
                     <div class="verticalSection">
-                        <h2 class="sectionTitle">Jellyfin Playlist</h2>
+                        <h2 class="sectionTitle">Jellyfin Player Queue</h2>
                         <p>
                             Bouton <b>file de lecture</b> dans le lecteur vidéo web (icône <span class="material-icons" style="vertical-align:middle">playlist_play</span> à côté des réglages, ou touche <b>Q</b>) :
                             saison en cours avec navigation entre saisons pour une série, file de lecture sinon. Un clic sur un épisode le lance sans quitter le lecteur.
@@ -43,10 +43,10 @@
                         <p class="fieldDescription">
                             Le script est injecté dans <code>index.html</code> à la volée (aucune écriture sur le disque) et servi par
                             <code>/QueueOsd/jellyfin-queue-osd.js</code>. Si l'icône n'apparaît pas : rechargez la page avec Ctrl+F5, puis vérifiez la console (F12) :
-                            <code>[JellyfinPlaylist] v… – playbackManager found</code>.
+                            <code>[PlayerQueue] v… – playbackManager found</code>.
                         </p>
                         <p class="fieldDescription">
-                            Source, issues : <a is="emby-linkbutton" class="button-link" href="https://github.com/k1k4k/jellyfin-playlist" target="_blank" rel="noopener">github.com/k1k4k/jellyfin-playlist</a>
+                            Source, issues : <a is="emby-linkbutton" class="button-link" href="https://github.com/k1k4k/jellyfin-player-queue" target="_blank" rel="noopener">github.com/k1k4k/jellyfin-player-queue</a>
                         </p>
                     </div>
                 </form>

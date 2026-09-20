@@ -1,26 +1,26 @@
 [
   {
     "guid": "ae203062-4b00-4c07-a7f6-83e69982d951",
-    "name": "Jellyfin Playlist",
+    "name": "Jellyfin Player Queue",
     "description": "Bouton file de lecture dans le lecteur vidéo web : saison en cours, navigation entre saisons, lecture directe d'un épisode. Play queue button in the web video player: current season, season navigation, click-to-play.",
     "overview": "File de lecture / saisons dans le lecteur vidéo. Play queue & seasons in the video player.",
     "owner": "k1k4k",
     "category": "General",
-    "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/icon.png",
+    "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/icon.png",
     "versions": [
       {
         "version": "0.3.1.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-playlist/releases/tag/v0.3.1",
+        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.3.1",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/k1k4k/jellyfin-playlist/releases/download/v0.3.1/jellyfin-playlist_0.3.1.0_jf12.zip",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.3.1/jellyfin-playlist_0.3.1.0_jf12.zip",
         "checksum": "0be1da3b322bb82cd83cba17277faa5a",
         "timestamp": "2026-09-20T14:44:54Z"
       },
       {
         "version": "0.3.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-playlist/releases/tag/v0.3.0",
+        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.3.0",
         "targetAbi": "12.0.0.0",
-        "sourceUrl": "https://github.com/k1k4k/jellyfin-playlist/releases/download/v0.3.0/jellyfin-playlist_0.3.0.0_jf12.zip",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.3.0/jellyfin-playlist_0.3.0.0_jf12.zip",
         "checksum": "673e130a102ef021ccb9b5c6ee6ea73f",
         "timestamp": "2026-09-20T11:23:09Z"
       }

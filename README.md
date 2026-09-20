@@ -1,4 +1,4 @@
-# Jellyfin Playlist
+# Jellyfin Player Queue
 
 Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une série, la saison en cours avec navigation entre saisons « à la Netflix » ; sinon la file de lecture. Un clic lance l'épisode voulu sans quitter le lecteur.
 
@@ -25,17 +25,17 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 
 Quatre méthodes, de la plus simple à la plus manuelle. Dans tous les cas, rechargez la page Jellyfin avec `Ctrl+F5` après l'installation.
 
-### 1. Plugin Jellyfin Playlist (recommandé)
+### 1. Plugin Jellyfin Player Queue (recommandé)
 
 Un vrai plugin Jellyfin : le script est embarqué dans le plugin, servi par le serveur et injecté dans `index.html` **à la volée** (aucune écriture sur le disque, rien à refaire après une mise à jour de Jellyfin, pas de problème de permissions Docker). Mises à jour via le tableau de bord.
 
 1. Tableau de bord → Plugins → Dépôts → « + » et ajoutez l'URL correspondant à votre version de Jellyfin :
-   - **Jellyfin 12.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest.json`
-   - **Jellyfin 10.11.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest-10.11.json`
-2. Catalogue → **Jellyfin Playlist** → Installer, puis redémarrez Jellyfin.
-3. `Ctrl+F5` dans le navigateur. La page de configuration du plugin (Tableau de bord → Plugins → Jellyfin Playlist) permet de désactiver le bouton sans désinstaller.
+   - **Jellyfin 12.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json`
+   - **Jellyfin 10.11.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest-10.11.json`
+2. Catalogue → **Jellyfin Player Queue** → Installer, puis redémarrez Jellyfin.
+3. `Ctrl+F5` dans le navigateur. La page de configuration du plugin (Tableau de bord → Plugins → Jellyfin Player Queue) permet de désactiver le bouton sans désinstaller.
 
-Installation manuelle du plugin : téléchargez le zip de la [dernière release](https://github.com/k1k4k/jellyfin-playlist/releases) (`_jf12` pour Jellyfin 12, `_jf10` pour 10.11), dézippez-le dans `<config>/plugins/QueueOsd/` et redémarrez.
+Installation manuelle du plugin : téléchargez le zip de la [dernière release](https://github.com/k1k4k/jellyfin-player-queue/releases) (`_jf12` pour Jellyfin 12, `_jf10` pour 10.11), dézippez-le dans `<config>/plugins/QueueOsd/` et redémarrez.
 
 ### 2. Plugin « JavaScript Injector »
 
@@ -82,10 +82,10 @@ Lancez une saison, une playlist, ou « Lire à partir d'ici » sur un épisode. 
 
 ## Dépannage
 
-- **Pas d'icône dans le lecteur** : ouvrez la console du navigateur (F12). Vous devez voir `[JellyfinPlaylist] v… – playbackManager found`. Si vous voyez `playbackManager not found`, la version de jellyfin-web n'est pas reconnue — ouvrez une issue avec votre version.
+- **Pas d'icône dans le lecteur** : ouvrez la console du navigateur (F12). Vous devez voir `[PlayerQueue] v… – playbackManager found`. Si vous voyez `playbackManager not found`, la version de jellyfin-web n'est pas reconnue — ouvrez une issue avec votre version.
 - **Le script n'est pas chargé du tout** (rien dans la console) : vérifiez que `index.html` contient bien la balise, et videz le cache (`Ctrl+F5`). Après une mise à jour de Jellyfin, relancez l'installation.
 - **« Aucun élément dans la file »** : vous avez lancé un film seul (pas de série, pas de playlist).
-- **Pas de saisons, juste la file** : la console affiche `[JellyfinPlaylist] refresh {...}` avec `mode: "queue"` — l'élément en cours n'est pas reconnu comme épisode d'une série ; ouvrez une issue avec cette ligne.
+- **Pas de saisons, juste la file** : la console affiche `[PlayerQueue] refresh {...}` avec `mode: "queue"` — l'élément en cours n'est pas reconnu comme épisode d'une série ; ouvrez une issue avec cette ligne.
 
 ## Développement
 
@@ -124,4 +124,4 @@ Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the
 
 Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
 
-**Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-playlist/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Jellyfin Playlist** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.
+**Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Jellyfin Player Queue** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.

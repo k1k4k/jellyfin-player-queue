@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.QueueOsd.Services;
 
 /// <summary>
-/// Injecte la balise &lt;script&gt; de Jellyfin Playlist dans l'index.html de jellyfin-web au moment
+/// Injecte la balise &lt;script&gt; de Jellyfin Player Queue dans l'index.html de jellyfin-web au moment
 /// de la requête (middleware ASP.NET enregistré via <see cref="IStartupFilter"/>).
 /// Aucune écriture sur disque : pas de problème de permissions, et rien à refaire
 /// après une mise à jour de Jellyfin. En cas d'erreur, la réponse d'origine est servie telle quelle.
@@ -118,14 +118,14 @@ public class ScriptInjectionStartupFilter : IStartupFilter
                     html = string.Concat(html.AsSpan(0, headClose), BuildScriptTag(), html.AsSpan(headClose));
                     if (Interlocked.Exchange(ref _loggedOnce, 1) == 0)
                     {
-                        _logger.LogInformation("Jellyfin Playlist: script tag injected into index.html (request-time middleware).");
+                        _logger.LogInformation("Jellyfin Player Queue: script tag injected into index.html (request-time middleware).");
                     }
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Jellyfin Playlist: injection failed, serving original index.html.");
+            _logger.LogWarning(ex, "Jellyfin Player Queue: injection failed, serving original index.html.");
         }
 
         var bytes = Encoding.UTF8.GetBytes(html);

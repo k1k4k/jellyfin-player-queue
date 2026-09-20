@@ -1,6 +1,6 @@
 /*!
- * Jellyfin Playlist — v0.3.1
- * https://github.com/k1k4k/jellyfin-playlist
+ * Jellyfin Player Queue — v0.3.2
+ * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
  * Le panneau liste les éléments de la file (épisodes suivants, playlist…) ;
@@ -25,10 +25,10 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.3.1';
+    var VERSION = '0.3.2';
     window.__jfQueueOsd = { version: VERSION };
 
-    var TAG = '[JellyfinPlaylist]';
+    var TAG = '[PlayerQueue]';
     var pm = null;            // playbackManager (singleton)
     var panel = null;
     var refreshTimer = null;

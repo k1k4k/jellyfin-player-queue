@@ -2,9 +2,9 @@
 """Empaquète le plugin et met à jour le manifest du dépôt de plugins Jellyfin.
 
     python scripts/package.py --target jf12 --dll Jellyfin.Plugin.QueueOsd/bin/Release/net10.0/Jellyfin.Plugin.QueueOsd.dll \
-        --repo k1k4k/jellyfin-playlist --tag v0.3.0 [--changelog "..."]
+        --repo k1k4k/jellyfin-player-queue --tag v0.3.0 [--changelog "..."]
 
-- crée dist/jellyfin-playlist_<version>_<target>.zip (la DLL à la racine du zip)
+- crée dist/jellyfin-player-queue_<version>_<target>.zip (la DLL à la racine du zip)
 - calcule le MD5 attendu par Jellyfin
 - ajoute/remplace l'entrée de version dans manifest.json (jf12) ou manifest-10.11.json (jf10)
 Le sourceUrl pointe vers l'asset de la release GitHub du tag.
@@ -18,7 +18,7 @@ import re
 import zipfile
 
 GUID = "ae203062-4b00-4c07-a7f6-83e69982d951"
-NAME = "Jellyfin Playlist"
+NAME = "Jellyfin Player Queue"
 TARGETS = {
     "jf12": {"manifest": "manifest.json", "targetAbi": "12.0.0.0", "framework": "net10.0"},
     "jf10": {"manifest": "manifest-10.11.json", "targetAbi": "10.11.0.0", "framework": "net9.0"},
@@ -48,7 +48,7 @@ def main():
     version = read_version(os.path.join(root, "Jellyfin.Plugin.QueueOsd", "Jellyfin.Plugin.QueueOsd.csproj"))
 
     os.makedirs(args.out, exist_ok=True)
-    zip_name = f"jellyfin-playlist_{version}_{args.target}.zip"
+    zip_name = f"jellyfin-player-queue_{version}_{args.target}.zip"
     zip_path = os.path.join(args.out, zip_name)
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         z.write(args.dll, os.path.basename(args.dll))
