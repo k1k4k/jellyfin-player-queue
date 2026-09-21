@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.3.2
+ * Jellyfin Player Queue — v0.4.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.3.2';
+    var VERSION = '0.4.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -38,6 +38,8 @@
     var series = null;        // { seriesId, seasons: [{ id, name, index, episodes: [...] }] }
     var selectedSeasonId = null;
     var lastCurrentItemId = null;
+    var dragging = null;      // état du glisser-déposer en cours (vue file)
+    var suppressClickUntil = 0; // ignore le clic qui suit un glisser-déposer
 
     /* ------------------------------------------------------------------ */
     /*  0. Textes FR / EN                                                  */
@@ -46,10 +48,12 @@
     var STRINGS = {
         fr: { queue: 'File de lecture', remaining: 'à suivre', empty: 'Aucun élément dans la file.', close: 'Fermer', watched: 'Vu', shortcut: 'Q',
               season: 'Saison', specials: 'Spéciaux', episodes: 'épisodes', prevSeason: 'Saison précédente', nextSeason: 'Saison suivante',
-              showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.' },
+              showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.',
+              playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file' },
         en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
-              showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.' }
+              showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
+              playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue' }
     };
 
     function getLang() {
@@ -208,6 +212,16 @@
             '.jfQueueMeta{font-size:.82em;opacity:.65;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
             '.jfQueueEmpty{padding:2em 1em;text-align:center;opacity:.6}',
             '.jfQueuePlayed{color:#fff;opacity:.8;font-size:1.1em;flex:0 0 auto}',
+            '.jfQueueActions{display:flex;align-items:center;gap:.1em;flex:0 0 auto;margin-left:-.25em}',
+            '.jfQueueActions .paper-icon-button-light{color:#fff;opacity:.55;padding:.3em;margin:0}',
+            '.jfQueueActions .paper-icon-button-light .material-icons{font-size:1.35em}',
+            '.jfQueueActions .paper-icon-button-light:hover{opacity:1}',
+            '.jfQueueDrag{cursor:grab;touch-action:none}',
+            '.jfQueueDragging .jfQueueDrag{cursor:grabbing}',
+            '.jfQueueItem.jfQueueDragging{opacity:.9;background:rgba(0,164,220,.25);box-shadow:0 .3em 1em rgba(0,0,0,.6);position:relative;z-index:2}',
+            '.jfQueueList.jfQueueDropActive .jfQueueItem{transition:transform .12s}',
+            '.jfQueueInQueue{color:#00a4dc;opacity:.9;font-size:1.1em;flex:0 0 auto}',
+            '@media (hover:hover){.jfQueueItem .jfQueueHover{opacity:0;transition:opacity .12s}.jfQueueItem:hover .jfQueueHover,.jfQueueItem:focus-within .jfQueueHover{opacity:1}}',
             '.jfQueueHeaderBtns{display:flex;align-items:center;gap:.1em}',
             '.jfQueueHeaderBtns .paper-icon-button-light{color:#fff;opacity:.8}',
             '.jfQueueSeasonBar{display:flex;align-items:center;justify-content:space-between;gap:.5em;padding:.35em .5em;',
@@ -240,7 +254,7 @@
             '  <div><span class="jfQueueTitle">' + escapeHtml(t('queue')) + '</span><span class="jfQueueCount"></span></div>' +
             '  <div class="jfQueueHeaderBtns">' +
             '    <button type="button" class="jfQueueToggleView paper-icon-button-light autoSize hide" title="' + escapeHtml(t('showQueue')) + '">' +
-            '      <span class="material-icons queue_music" aria-hidden="true"></span></button>' +
+            '      <span class="material-icons playlist_play" aria-hidden="true"></span></button>' +
             '    <button type="button" class="jfQueueClose paper-icon-button-light autoSize" title="' + escapeHtml(t('close')) + '">' +
             '      <span class="material-icons close" aria-hidden="true"></span></button>' +
             '  </div>' +
@@ -265,6 +279,7 @@
 
         panel.querySelector('.jfQueueClose').addEventListener('click', closePanel);
         panel.querySelector('.jfQueueList').addEventListener('click', onItemClick);
+        panel.querySelector('.jfQueueList').addEventListener('pointerdown', onDragStart);
         panel.querySelector('.jfQueueToggleView').addEventListener('click', function () {
             view = (view === 'queue') ? 'auto' : 'queue';
             refresh();
@@ -281,6 +296,14 @@
     }
 
     function onItemClick(e) {
+        var actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            onActionClick(actionBtn);
+            return;
+        }
+        if (e.target.closest('.jfQueueDrag') || Date.now() < suppressClickUntil) { e.stopPropagation(); return; }
         var el = e.target.closest('.jfQueueItem');
         if (!el || !pm) return;
         if (el.classList.contains('jfQueueCurrent')) { closePanel(); return; }
@@ -421,8 +444,9 @@
 
         // correspondance épisode -> PlaylistItemId (pour sauter sans casser la file)
         Promise.resolve(pm.getPlaylist()).then(function (queue) {
-            var plid = {};
-            (queue || []).forEach(function (q) { plid[q.Id] = q.PlaylistItemId; });
+            var plid = {}, qidx = {};
+            (queue || []).forEach(function (q, i) { plid[q.Id] = q.PlaylistItemId; qidx[q.Id] = i; });
+            var qcur = currentQueueIndex();
             var currentIdx = -1;
             (season ? season.episodes : []).forEach(function (ep, i) { if (ep.Id === current.Id) currentIdx = i; });
             list.innerHTML = (season ? season.episodes : []).map(function (ep, i) {
@@ -430,12 +454,160 @@
                     current: ep.Id === current.Id,
                     past: currentIdx >= 0 && i < currentIdx,
                     playlistItemId: plid[ep.Id] || '',
+                    inQueueAhead: qidx[ep.Id] != null && qidx[ep.Id] > qcur,
                     series: true
                 });
             }).join('');
             var cur = list.querySelector('.jfQueueCurrent');
             if (cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
         });
+    }
+
+    /* ---- actions sur une ligne : lire ensuite / ajouter / retirer ---- */
+
+    function currentQueueIndex() {
+        try { var i = pm.getCurrentPlaylistIndex(); return typeof i === 'number' ? i : -1; } catch (e) { return -1; }
+    }
+
+    function findSeriesItem(itemId) {
+        var all = allEpisodes();
+        for (var i = 0; i < all.length; i++) if (all[i].Id === itemId) return all[i];
+        return null;
+    }
+
+    // Ajout d'un épisode seul à la file. L'API publique queue()/queueNext() étend un épisode
+    // isolé à "lui + les 100 suivants de la série" (translateItemsForPlayback) ; pour n'ajouter
+    // que celui-là, on passe par le gestionnaire de file local quand le lecteur est local.
+    function enqueueSingle(item, mode) {
+        var player = null;
+        try { player = pm.getCurrentPlayer(); } catch (e) { /* ignore */ }
+        var mgr = pm._playQueueManager;
+        var copy = {};
+        for (var k in item) if (Object.prototype.hasOwnProperty.call(item, k)) copy[k] = item[k];
+        delete copy.PlaylistItemId;
+        if (player && player.isLocalPlayer && mgr && typeof mgr.queueNext === 'function' && typeof mgr.queue === 'function') {
+            if (mode === 'next') mgr.queueNext([copy]); else mgr.queue([copy]);
+            return Promise.resolve();
+        }
+        // lecteur distant (cast…) : API publique, avec son extension éventuelle
+        return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [copy] }) : pm.queue({ items: [copy] }));
+    }
+
+    function onActionClick(btn) {
+        var row = btn.closest('.jfQueueItem');
+        if (!row || !pm) return;
+        var action = btn.getAttribute('data-action');
+        var plid = row.getAttribute('data-playlistitemid');
+        var itemId = row.getAttribute('data-itemid');
+        var done = function () { series = null; refresh(); };
+        try {
+            if (action === 'remove' && plid) {
+                pm.removeFromPlaylist([plid]);
+                done();
+            } else if (action === 'playnext') {
+                if (plid) {
+                    // déjà dans la file : on le déplace juste après l'élément en cours
+                    pm.movePlaylistItem(plid, currentQueueIndex() + 1);
+                    done();
+                } else {
+                    var ep = findSeriesItem(itemId);
+                    if (ep) enqueueSingle(ep, 'next').then(done, done);
+                }
+            } else if (action === 'queue') {
+                var ep2 = findSeriesItem(itemId);
+                if (ep2) enqueueSingle(ep2, 'end').then(done, done);
+            }
+        } catch (err) {
+            console.error(TAG, 'action ' + action + ' failed', err);
+        }
+    }
+
+    function actionButton(action, icon, title, extraCls) {
+        return '<button type="button" class="paper-icon-button-light autoSize ' + (extraCls || '') + '" data-action="' + action + '" title="' + escapeHtml(title) + '">' +
+            '<span class="material-icons ' + icon + '" aria-hidden="true"></span></button>';
+    }
+
+    /* ---- glisser-déposer (vue file) : pointer events, poignée uniquement ---- */
+
+    function onDragStart(e) {
+        var handle = e.target.closest('.jfQueueDrag');
+        if (!handle || dragging) return;
+        var row = handle.closest('.jfQueueItem');
+        var list = row && row.parentNode;
+        if (!row || !list || row.classList.contains('jfQueueCurrent')) return;
+        e.preventDefault();
+        e.stopPropagation();
+        dragging = { row: row, list: list, pointerId: e.pointerId, moved: false, startY: e.clientY };
+        row.classList.add('jfQueueDragging');
+        list.classList.add('jfQueueDropActive');
+        // La capture est posée sur la liste (jamais déplacée dans le DOM) : la ligne, elle,
+        // est retirée/réinsérée à chaque insertBefore, ce qui perdrait la capture.
+        try { list.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        document.addEventListener('pointermove', onDragMove, true);
+        document.addEventListener('pointerup', onDragEnd, true);
+        document.addEventListener('pointercancel', onDragEnd, true);
+        list.addEventListener('lostpointercapture', onDragEnd);
+    }
+
+    function onDragMove(e) {
+        if (!dragging || e.pointerId !== dragging.pointerId) return;
+        e.preventDefault();
+        var list = dragging.list;
+        var row = dragging.row;
+        dragging.moved = true;
+
+        // défilement automatique près des bords
+        var lr = list.getBoundingClientRect();
+        if (e.clientY < lr.top + 30) list.scrollTop -= 8;
+        else if (e.clientY > lr.bottom - 30) list.scrollTop += 8;
+
+        // position cible : première ligne dont le milieu est sous le pointeur
+        var rows = Array.prototype.slice.call(list.querySelectorAll('.jfQueueItem'));
+        var currentRow = list.querySelector('.jfQueueCurrent');
+        var target = null;
+        for (var i = 0; i < rows.length; i++) {
+            var r = rows[i];
+            if (r === row) continue;
+            var b = r.getBoundingClientRect();
+            if (e.clientY < b.top + b.height / 2) { target = r; break; }
+        }
+        // jamais avant (ni à la place de) l'élément en cours
+        if (currentRow && target && rows.indexOf(target) <= rows.indexOf(currentRow)) {
+            target = currentRow.nextElementSibling;
+            if (target === row) return;
+        }
+        if (target) {
+            if (row.nextSibling !== target) list.insertBefore(row, target);
+        } else if (list.lastElementChild !== row) {
+            list.appendChild(row);
+        }
+    }
+
+    function onDragEnd(e) {
+        if (!dragging || (e.pointerId != null && e.pointerId !== dragging.pointerId)) return;
+        var d = dragging;
+        dragging = null;
+        document.removeEventListener('pointermove', onDragMove, true);
+        document.removeEventListener('pointerup', onDragEnd, true);
+        document.removeEventListener('pointercancel', onDragEnd, true);
+        d.list.removeEventListener('lostpointercapture', onDragEnd);
+        try { d.list.releasePointerCapture(d.pointerId); } catch (err) { /* ignore */ }
+        d.row.classList.remove('jfQueueDragging');
+        d.list.classList.remove('jfQueueDropActive');
+        if (d.moved) suppressClickUntil = Date.now() + 400;
+        if (!d.moved || e.type === 'pointercancel') { refresh(); return; }
+
+        var rows = Array.prototype.slice.call(d.list.querySelectorAll('.jfQueueItem'));
+        var newIndex = rows.indexOf(d.row);
+        var plid = d.row.getAttribute('data-playlistitemid');
+        var ci = currentQueueIndex();
+        if (newIndex <= ci) newIndex = ci + 1;
+        try {
+            pm.movePlaylistItem(plid, newIndex);
+        } catch (err) {
+            console.error(TAG, 'movePlaylistItem failed', err);
+        }
+        refresh();
     }
 
     function renderItem(item, o) {
@@ -459,7 +631,23 @@
             '  <div class="jfQueueMeta">' + escapeHtml(meta) + '</div>' +
             '</div>' +
             (ud.Played ? '<span class="material-icons check jfQueuePlayed" title="' + escapeHtml(t('watched')) + '" aria-hidden="true"></span>' : '') +
+            renderActions(o) +
             '</div>';
+    }
+
+    function renderActions(o) {
+        if (o.current) return '';
+        var html = '';
+        if (o.series) {
+            if (o.inQueueAhead) html += '<span class="material-icons playlist_add_check jfQueueInQueue" title="' + escapeHtml(t('inQueue')) + '" aria-hidden="true"></span>';
+            html += actionButton('playnext', 'queue_play_next', t('playNext'), 'jfQueueHover');
+            if (!o.playlistItemId) html += actionButton('queue', 'playlist_add', t('addToQueue'), 'jfQueueHover');
+        } else {
+            html += actionButton('remove', 'close', t('remove'), 'jfQueueHover');
+            html += '<button type="button" class="paper-icon-button-light autoSize jfQueueDrag" title="' + escapeHtml(t('drag')) + '">' +
+                '<span class="material-icons drag_indicator" aria-hidden="true"></span></button>';
+        }
+        return '<div class="jfQueueActions">' + html + '</div>';
     }
 
     /* ---- mode file ---- */
@@ -518,7 +706,7 @@
     }
 
     function refresh() {
-        if (!pm || !panel || panel.classList.contains('hide')) return;
+        if (!pm || !panel || panel.classList.contains('hide') || dragging) return;
         resolveCurrent().then(refreshWith);
     }
 
@@ -529,7 +717,7 @@
         console.debug(TAG, 'refresh', { type: current && current.Type, seriesId: current && current.SeriesId, seasonId: current && current.SeasonId, view: view, mode: isSeries && view !== 'queue' ? 'series' : 'queue' });
         toggle.classList.toggle('hide', !isSeries);
         toggle.title = view === 'queue' ? t('showSeasons') : t('showQueue');
-        toggle.querySelector('.material-icons').className = 'material-icons ' + (view === 'queue' ? 'view_list' : 'queue_music');
+        toggle.querySelector('.material-icons').className = 'material-icons ' + (view === 'queue' ? 'video_library' : 'playlist_play');
 
         if (!isSeries || view === 'queue') { refreshQueue(); return; }
 
@@ -576,6 +764,7 @@
 
     function closePanel() {
         if (!panel) return;
+        if (dragging) onDragEnd({ type: 'pointercancel', pointerId: dragging.pointerId });
         panel.classList.add('hide');
         clearInterval(refreshTimer);
     }
