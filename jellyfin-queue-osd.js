@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.4.0
+ * Jellyfin Player Queue — v0.4.1
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.4.0';
+    var VERSION = '0.4.1';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -49,11 +49,11 @@
         fr: { queue: 'File de lecture', remaining: 'à suivre', empty: 'Aucun élément dans la file.', close: 'Fermer', watched: 'Vu', shortcut: 'Q',
               season: 'Saison', specials: 'Spéciaux', episodes: 'épisodes', prevSeason: 'Saison précédente', nextSeason: 'Saison suivante',
               showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.',
-              playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file' },
+              playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file', more: 'Options' },
         en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
               showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
-              playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue' }
+              playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue', more: 'Options' }
     };
 
     function getLang() {
@@ -221,7 +221,14 @@
             '.jfQueueItem.jfQueueDragging{opacity:.9;background:rgba(0,164,220,.25);box-shadow:0 .3em 1em rgba(0,0,0,.6);position:relative;z-index:2}',
             '.jfQueueList.jfQueueDropActive .jfQueueItem{transition:transform .12s}',
             '.jfQueueInQueue{color:#00a4dc;opacity:.9;font-size:1.1em;flex:0 0 auto}',
-            '@media (hover:hover){.jfQueueItem .jfQueueHover{opacity:0;transition:opacity .12s}.jfQueueItem:hover .jfQueueHover,.jfQueueItem:focus-within .jfQueueHover{opacity:1}}',
+            '@media (hover:hover){.jfQueueItem .jfQueueHover{opacity:0;transition:opacity .12s}.jfQueueItem:hover .jfQueueHover,.jfQueueItem:focus-within .jfQueueHover,.jfQueueItem.jfQueueMenuOpen .jfQueueHover{opacity:1}}',
+            '.jfQueueMenu{position:absolute;z-index:5;min-width:14em;background:#262626;color:#fff;border-radius:.4em;',
+            '  box-shadow:0 .4em 1.2em rgba(0,0,0,.7);padding:.3em 0;display:flex;flex-direction:column}',
+            '.jfQueueMenu.hide{display:none!important}',
+            '.jfQueueMenu button{display:flex;align-items:center;gap:.7em;background:none;border:0;color:#fff;font:inherit;',
+            '  padding:.55em 1em;text-align:left;cursor:pointer;width:100%}',
+            '.jfQueueMenu button:hover,.jfQueueMenu button:focus{background:rgba(255,255,255,.1);outline:none}',
+            '.jfQueueMenu .material-icons{font-size:1.25em;opacity:.85}',
             '.jfQueueHeaderBtns{display:flex;align-items:center;gap:.1em}',
             '.jfQueueHeaderBtns .paper-icon-button-light{color:#fff;opacity:.8}',
             '.jfQueueSeasonBar{display:flex;align-items:center;justify-content:space-between;gap:.5em;padding:.35em .5em;',
@@ -266,7 +273,8 @@
             '  <button type="button" class="jfQueueSeasonNext paper-icon-button-light autoSize" title="' + escapeHtml(t('nextSeason')) + '">' +
             '    <span class="material-icons chevron_right" aria-hidden="true"></span></button>' +
             '</div>' +
-            '<div class="jfQueueList"></div>';
+            '<div class="jfQueueList"></div>' +
+            '<div class="jfQueueMenu hide" role="menu"></div>';
 
         // Ne pas laisser l'OSD interpréter nos clics (pause, toggle OSD, etc.)
         ['click', 'dblclick', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'wheel', 'contextmenu']
@@ -274,12 +282,23 @@
                 panel.addEventListener(ev, function (e) { e.stopPropagation(); }, { passive: ev === 'wheel' || ev.indexOf('touch') === 0 });
             });
         panel.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); closePanel(); }
+            if (e.key !== 'Escape') return;
+            e.stopPropagation(); e.preventDefault();
+            if (panel.__menuRow) closeMenu(); else closePanel();
         });
 
         panel.querySelector('.jfQueueClose').addEventListener('click', closePanel);
         panel.querySelector('.jfQueueList').addEventListener('click', onItemClick);
         panel.querySelector('.jfQueueList').addEventListener('pointerdown', onDragStart);
+        panel.querySelector('.jfQueueList').addEventListener('scroll', closeMenu, { passive: true });
+        panel.querySelector('.jfQueueMenu').addEventListener('click', function (e) {
+            var b = e.target.closest('[data-action]');
+            if (!b) return;
+            e.preventDefault(); e.stopPropagation();
+            var row = panel.__menuRow;
+            closeMenu();
+            if (row) onActionClick(b.getAttribute('data-action'), row);
+        });
         panel.querySelector('.jfQueueToggleView').addEventListener('click', function () {
             view = (view === 'queue') ? 'auto' : 'queue';
             refresh();
@@ -300,9 +319,12 @@
         if (actionBtn) {
             e.preventDefault();
             e.stopPropagation();
-            onActionClick(actionBtn);
+            var row0 = actionBtn.closest('.jfQueueItem');
+            if (actionBtn.getAttribute('data-action') === 'more') openMenu(actionBtn, row0);
+            else onActionClick(actionBtn.getAttribute('data-action'), row0);
             return;
         }
+        if (panel.__menuRow) { closeMenu(); return; }   // un clic hors du menu ne fait que le fermer
         if (e.target.closest('.jfQueueDrag') || Date.now() < suppressClickUntil) { e.stopPropagation(); return; }
         var el = e.target.closest('.jfQueueItem');
         if (!el || !pm) return;
@@ -493,10 +515,8 @@
         return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [copy] }) : pm.queue({ items: [copy] }));
     }
 
-    function onActionClick(btn) {
-        var row = btn.closest('.jfQueueItem');
+    function onActionClick(action, row) {
         if (!row || !pm) return;
-        var action = btn.getAttribute('data-action');
         var plid = row.getAttribute('data-playlistitemid');
         var itemId = row.getAttribute('data-itemid');
         var done = function () { series = null; refresh(); };
@@ -522,6 +542,44 @@
         }
     }
 
+    function menuEntry(action, icon, label) {
+        return '<button type="button" data-action="' + action + '"><span class="material-icons ' + icon + '" aria-hidden="true"></span><span>' + escapeHtml(label) + '</span></button>';
+    }
+
+    function openMenu(btn, row) {
+        var menu = panel.querySelector('.jfQueueMenu');
+        if (!menu || !row) return;
+        if (panel.__menuRow === row && !menu.classList.contains('hide')) { closeMenu(); return; }
+        closeMenu();
+        var plid = row.getAttribute('data-playlistitemid');
+        var inQueueAhead = row.getAttribute('data-inqueueahead') === '1';
+        var isSeries = row.classList.contains('jfQueueSeries');
+        var html = menuEntry('playnext', 'queue_play_next', t('playNext'));
+        if (isSeries && !plid) html += menuEntry('queue', 'playlist_add', t('addToQueue'));
+        if (plid && (!isSeries || inQueueAhead)) html += menuEntry('remove', 'remove_circle_outline', t('remove'));
+        menu.innerHTML = html;
+        menu.classList.remove('hide');
+        row.classList.add('jfQueueMenuOpen');
+        panel.__menuRow = row;
+        // position : sous le bouton, aligné à droite, dans le panneau
+        var pr = panel.getBoundingClientRect(), br = btn.getBoundingClientRect();
+        var top = br.bottom - pr.top + 2;
+        var right = pr.right - br.right;
+        if (top + menu.offsetHeight > pr.height - 4) top = br.top - pr.top - menu.offsetHeight - 2;
+        menu.style.top = Math.max(0, top) + 'px';
+        menu.style.right = Math.max(0, right) + 'px';
+        menu.style.left = 'auto';
+        var first = menu.querySelector('button'); if (first) first.focus();
+    }
+
+    function closeMenu() {
+        if (!panel) return;
+        var menu = panel.querySelector('.jfQueueMenu');
+        if (menu) menu.classList.add('hide');
+        if (panel.__menuRow) panel.__menuRow.classList.remove('jfQueueMenuOpen');
+        panel.__menuRow = null;
+    }
+
     function actionButton(action, icon, title, extraCls) {
         return '<button type="button" class="paper-icon-button-light autoSize ' + (extraCls || '') + '" data-action="' + action + '" title="' + escapeHtml(title) + '">' +
             '<span class="material-icons ' + icon + '" aria-hidden="true"></span></button>';
@@ -537,6 +595,7 @@
         if (!row || !list || row.classList.contains('jfQueueCurrent')) return;
         e.preventDefault();
         e.stopPropagation();
+        closeMenu();
         dragging = { row: row, list: list, pointerId: e.pointerId, moved: false, startY: e.clientY };
         row.classList.add('jfQueueDragging');
         list.classList.add('jfQueueDropActive');
@@ -621,7 +680,7 @@
             ? Math.min(100, Math.round(ud.PlaybackPositionTicks * 100 / item.RunTimeTicks)) : 0;
         var meta = [o.series ? '' : getSubtitle(item), mins ? mins + ' min' : ''].filter(Boolean).join(' · ');
         var cls = 'jfQueueItem' + (o.current ? ' jfQueueCurrent' : '') + (o.past ? ' jfQueuePast' : '') + (o.series ? ' jfQueueSeries' : '');
-        return '<div class="' + cls + '" tabindex="0" data-itemid="' + escapeHtml(item.Id) + '" data-playlistitemid="' + escapeHtml(o.playlistItemId || '') + '">' +
+        return '<div class="' + cls + '" tabindex="0" data-itemid="' + escapeHtml(item.Id) + '" data-playlistitemid="' + escapeHtml(o.playlistItemId || '') + '" data-inqueueahead="' + (o.inQueueAhead ? '1' : '0') + '">' +
             '<div class="jfQueueThumb"' + (img ? ' style="background-image:url(&quot;' + escapeHtml(img) + '&quot;)"' : '') + '>' +
             (o.current ? '<span class="material-icons play_arrow" aria-hidden="true"></span>' : '') +
             (pct ? '<div class="jfQueueProgress" style="width:' + pct + '%"></div>' : '') +
@@ -638,12 +697,11 @@
     function renderActions(o) {
         if (o.current) return '';
         var html = '';
-        if (o.series) {
-            if (o.inQueueAhead) html += '<span class="material-icons playlist_add_check jfQueueInQueue" title="' + escapeHtml(t('inQueue')) + '" aria-hidden="true"></span>';
-            html += actionButton('playnext', 'queue_play_next', t('playNext'), 'jfQueueHover');
-            if (!o.playlistItemId) html += actionButton('queue', 'playlist_add', t('addToQueue'), 'jfQueueHover');
-        } else {
-            html += actionButton('remove', 'close', t('remove'), 'jfQueueHover');
+        if (o.series && o.inQueueAhead) {
+            html += '<span class="material-icons playlist_add_check jfQueueInQueue" title="' + escapeHtml(t('inQueue')) + '" aria-hidden="true"></span>';
+        }
+        html += actionButton('more', 'more_vert', t('more'), 'jfQueueHover');
+        if (!o.series) {
             html += '<button type="button" class="paper-icon-button-light autoSize jfQueueDrag" title="' + escapeHtml(t('drag')) + '">' +
                 '<span class="material-icons drag_indicator" aria-hidden="true"></span></button>';
         }
@@ -764,6 +822,7 @@
 
     function closePanel() {
         if (!panel) return;
+        closeMenu();
         if (dragging) onDragEnd({ type: 'pointercancel', pointerId: dragging.pointerId });
         panel.classList.add('hide');
         clearInterval(refreshTimer);

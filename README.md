@@ -10,8 +10,8 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 - **Série** (quel que soit le point de départ : série, saison, épisode, « Lire à partir d'ici ») : le panneau affiche la **saison en cours**, épisodes précédents compris, avec `◀ Saison N ▶` et une liste déroulante pour changer de saison. L'épisode en cours est surligné, coche « vu », barre de progression, vignettes.
 - Un clic sur un épisode → lecture immédiate. Si l'épisode est déjà dans la file (les suivants), la file est conservée ; sinon (épisode précédent, autre saison) une nouvelle file « à partir d'ici » est construite jusqu'à la fin de la série, **toutes saisons confondues** : la lecture enchaîne bien sur la saison suivante. Le réglage Jellyfin « Lire automatiquement l'épisode suivant » reste respecté.
 - Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche.
-- Sur chaque épisode (au survol) : **Lire ensuite** (inséré juste après l'épisode en cours, seul — pas toute la suite de la série) et **Ajouter à la fin de la file** ; une coche bleue signale les épisodes déjà dans la file à venir.
-- **Vue file** (bouton dans l'en-tête) : **réordonner par glisser-déposer** avec la poignée ⋮⋮ (souris ou doigt ; jamais avant l'épisode en cours) et **retirer** un élément avec ×.
+- Menu `⋮` sur chaque épisode : **Lire ensuite** (inséré juste après l'épisode en cours, seul — pas toute la suite de la série), **Ajouter à la fin de la file**, **Retirer de la file** ; une coche bleue signale les épisodes déjà dans la file à venir.
+- **Vue file** (bouton dans l'en-tête) : **réordonner par glisser-déposer** avec la poignée ⋮⋮ (souris ou doigt ; jamais avant l'épisode en cours).
 - **Collections** : lancées dans l'**ordre chronologique** (date de sortie, sinon année, sinon nom) au lieu de l'ordre d'ajout de Jellyfin ; la lecture aléatoire reste aléatoire.
 - **Autre contenu** (film dans une playlist, musique…) : vue « file de lecture » classique, avec les mêmes glisser-déposer et retrait.
 - Interface en français ou en anglais selon la langue du navigateur.
