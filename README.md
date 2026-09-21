@@ -4,6 +4,8 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 
 *A "play queue" button for the Jellyfin web video player: for a series, the current season with Netflix-style season navigation; otherwise the play queue. Click any item to play it without leaving the player. English summary at the bottom.*
 
+<p align="center"><img src="docs/screenshot.png" width="420" alt="Le panneau dans le lecteur : saison en cours, épisode en lecture surligné, épisodes suivants dans la file"></p>
+
 ## Ce que ça fait
 
 - Ajoute un bouton <img src="docs/playlist_play.svg" width="22" height="22" alt="playlist_play" align="absmiddle"> à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
