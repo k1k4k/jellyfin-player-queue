@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.5.0
+ * Jellyfin Player Queue — v0.5.1
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.5.0';
+    var VERSION = '0.5.1';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -57,13 +57,17 @@
               showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.',
               playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file', more: 'Options',
               pendingTitle: 'File en attente', pendingEmpty: 'Rien en attente.', play: 'Lire', clear: 'Vider',
-              appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments' },
+              appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments',
+              full: 'File en attente pleine ({0} éléments) : rien ajouté.', partial: '{0} ajouté(s), {1} ignoré(s) : file pleine ({2} maximum).',
+              trimmed: '{0} ajouté(s) en tête ; {1} retiré(s) de la fin (file pleine, {2} maximum).' },
         en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
               showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
               playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue', more: 'Options',
               pendingTitle: 'Pending queue', pendingEmpty: 'Nothing pending.', play: 'Play', clear: 'Clear',
-              appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items' }
+              appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items',
+              full: 'Pending queue is full ({0} items): nothing added.', partial: '{0} added, {1} skipped: queue is full ({2} max).',
+              trimmed: '{0} added at the top; {1} dropped from the end (queue full, {2} max).' }
     };
 
     function getLang() {
@@ -73,7 +77,15 @@
 
     function t(key) {
         var lang = getLang();
-        return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+        var text = (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+        if (arguments.length > 1) {
+            var args = arguments;
+            text = text.replace(/\{(\d+)\}/g, function (m, i) {
+                var v = args[parseInt(i, 10) + 1];
+                return v === undefined ? m : v;
+            });
+        }
+        return text;
     }
 
     /* ------------------------------------------------------------------ */
@@ -1132,12 +1144,41 @@
             var flat = [];
             lists.forEach(function (l) { flat = flat.concat(l); });
             if (!flat.length) return;
-            if (mode === 'next') pending = flat.concat(pending);
-            else pending = pending.concat(flat);
-            if (pending.length > PENDING_MAX) pending = pending.slice(0, PENDING_MAX);
+            var addedMsg = function (n) {
+                return n + (n > 1 ? ' ' + t('items') + ' ' : ' ') + t('added');
+            };
+
+            if (mode === 'next') {
+                // "Lire ensuite" doit toujours aboutir : on insère en tête et, si la file
+                // déborde, on rogne la fin plutôt que de refuser l'ajout.
+                var head = flat.length > PENDING_MAX ? flat.slice(0, PENDING_MAX) : flat;
+                var skippedNew = flat.length - head.length;
+                pending = head.concat(pending);
+                var dropped = 0;
+                if (pending.length > PENDING_MAX) {
+                    dropped = pending.length - PENDING_MAX;
+                    pending = pending.slice(0, PENDING_MAX);
+                }
+                savePending();
+                updatePendingUi();
+                if (skippedNew > 0) showToast(t('partial', head.length, skippedNew, PENDING_MAX));
+                else if (dropped > 0) showToast(t('trimmed', head.length, dropped, PENDING_MAX));
+                else showToast(addedMsg(head.length));
+                return;
+            }
+
+            var room = PENDING_MAX - pending.length;
+            if (room <= 0) {
+                showToast(t('full', PENDING_MAX));
+                return;
+            }
+            var skipped = flat.length - room;
+            if (skipped > 0) flat = flat.slice(0, room);
+            pending = pending.concat(flat);
             savePending();
             updatePendingUi();
-            showToast(flat.length + (flat.length > 1 ? ' ' + t('items') + ' ' : ' ') + t('added'));
+            if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
+            else showToast(addedMsg(flat.length));
         }).catch(function (err) {
             console.error(TAG, 'addToPending failed', err);
         });
