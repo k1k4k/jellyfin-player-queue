@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.4.1
+ * Jellyfin Player Queue — v0.5.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.4.1';
+    var VERSION = '0.5.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -41,6 +41,12 @@
     var dragging = null;      // état du glisser-déposer en cours (vue file)
     var suppressClickUntil = 0; // ignore le clic qui suit un glisser-déposer
 
+    // File en attente : ce que l'utilisateur empile depuis la bibliothèque quand rien ne joue.
+    var PENDING_KEY = 'jfPlayerQueue.pending';
+    var PENDING_MAX = 200;
+    var pending = [];
+    var pendingUi = null;     // { fab, panel } créés à la demande
+
     /* ------------------------------------------------------------------ */
     /*  0. Textes FR / EN                                                  */
     /* ------------------------------------------------------------------ */
@@ -49,11 +55,15 @@
         fr: { queue: 'File de lecture', remaining: 'à suivre', empty: 'Aucun élément dans la file.', close: 'Fermer', watched: 'Vu', shortcut: 'Q',
               season: 'Saison', specials: 'Spéciaux', episodes: 'épisodes', prevSeason: 'Saison précédente', nextSeason: 'Saison suivante',
               showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.',
-              playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file', more: 'Options' },
+              playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file', more: 'Options',
+              pendingTitle: 'File en attente', pendingEmpty: 'Rien en attente.', play: 'Lire', clear: 'Vider',
+              appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments' },
         en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
               showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
-              playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue', more: 'Options' }
+              playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue', more: 'Options',
+              pendingTitle: 'Pending queue', pendingEmpty: 'Nothing pending.', play: 'Play', clear: 'Clear',
+              appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items' }
     };
 
     function getLang() {
@@ -139,23 +149,45 @@
         return ticks ? Math.round(ticks / 600000000) : 0;
     }
 
-    function getImageUrl(item) {
+    // La vignette est en 16:9. Pour un épisode, l'image Primary est déjà une capture
+    // au bon format ; pour un film c'est une affiche verticale, donc on cherche d'abord
+    // une image paysage (Thumb, puis Backdrop) et on n'affiche l'affiche qu'en dernier
+    // recours, entière (jfQueueThumbPoster) plutôt que recadrée.
+    function getImage(item) {
         var api = window.ApiClient;
-        if (!api || typeof api.getScaledImageUrl !== 'function') return '';
+        if (!api || typeof api.getScaledImageUrl !== 'function') return null;
         var tags = item.ImageTags || {};
-        if (tags.Primary) {
-            return api.getScaledImageUrl(item.Id, { type: 'Primary', maxWidth: 320, tag: tags.Primary });
-        }
-        if (tags.Thumb) {
-            return api.getScaledImageUrl(item.Id, { type: 'Thumb', maxWidth: 320, tag: tags.Thumb });
-        }
+        var url = function (id, type, tag) {
+            return api.getScaledImageUrl(id, { type: type, maxWidth: 320, tag: tag });
+        };
+        var backdrop = (item.BackdropImageTags || [])[0];
+        var parentBackdrop = (item.ParentBackdropImageTags || [])[0];
+        var isEpisode = item.Type === 'Episode';
+
+        if (isEpisode && tags.Primary) return { url: url(item.Id, 'Primary', tags.Primary), poster: false };
+        if (tags.Thumb) return { url: url(item.Id, 'Thumb', tags.Thumb), poster: false };
         if (item.ParentThumbImageTag && item.ParentThumbItemId) {
-            return api.getScaledImageUrl(item.ParentThumbItemId, { type: 'Thumb', maxWidth: 320, tag: item.ParentThumbImageTag });
+            return { url: url(item.ParentThumbItemId, 'Thumb', item.ParentThumbImageTag), poster: false };
         }
+        if (backdrop) return { url: url(item.Id, 'Backdrop', backdrop), poster: false };
+        if (parentBackdrop && item.ParentBackdropItemId) {
+            return { url: url(item.ParentBackdropItemId, 'Backdrop', parentBackdrop), poster: false };
+        }
+        if (tags.Primary) return { url: url(item.Id, 'Primary', tags.Primary), poster: !isEpisode };
         if (item.SeriesPrimaryImageTag && item.SeriesId) {
-            return api.getScaledImageUrl(item.SeriesId, { type: 'Primary', maxWidth: 320, tag: item.SeriesPrimaryImageTag });
+            return { url: url(item.SeriesId, 'Primary', item.SeriesPrimaryImageTag), poster: true };
         }
-        return '';
+        if (item.AlbumPrimaryImageTag && item.AlbumId) {
+            return { url: url(item.AlbumId, 'Primary', item.AlbumPrimaryImageTag), poster: false };
+        }
+        return null;
+    }
+
+    // Attributs de la vignette (classe + image de fond), prêts à insérer dans le HTML.
+    function thumbAttrs(item) {
+        var img = getImage(item);
+        return 'class="jfQueueThumb' + (img && img.poster ? ' jfQueueThumbPoster' : '') + '"' +
+            (img ? ' style="background-image:url(&quot;' + escapeHtml(img.url) + '&quot;)"' : '');
     }
 
     function getEpisodeLabel(item) {
@@ -204,6 +236,7 @@
             '.jfQueueItem.jfQueuePast{opacity:.45}',
             '.jfQueueThumb{flex:0 0 auto;width:6.5em;aspect-ratio:16/9;background:#2a2a2a center/cover no-repeat;',
             '  border-radius:.25em;position:relative;overflow:hidden}',
+            '.jfQueueThumbPoster{background-size:contain;background-color:#1a1a1a}',
             '.jfQueueThumb .material-icons{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;',
             '  font-size:2em;color:rgba(255,255,255,.85);text-shadow:0 0 6px #000}',
             '.jfQueueProgress{position:absolute;left:0;bottom:0;height:3px;background:#00a4dc}',
@@ -229,6 +262,26 @@
             '  padding:.55em 1em;text-align:left;cursor:pointer;width:100%}',
             '.jfQueueMenu button:hover,.jfQueueMenu button:focus{background:rgba(255,255,255,.1);outline:none}',
             '.jfQueueMenu .material-icons{font-size:1.25em;opacity:.85}',
+            '.jfPendingFab{position:fixed;right:1.5em;bottom:1.5em;z-index:900;display:flex;align-items:center;gap:.5em;',
+            '  background:#00a4dc;color:#fff;border:0;border-radius:2em;padding:.7em 1.1em;font:inherit;font-weight:600;',
+            '  box-shadow:0 .3em 1em rgba(0,0,0,.5);cursor:pointer}',
+            '.jfPendingFab:hover{filter:brightness(1.1)}',
+            '.jfPendingFab.hide{display:none!important}',
+            '.jfPendingPanel{position:fixed;right:1.5em;bottom:5.5em;z-index:901;width:26em;max-width:calc(100vw - 3em);',
+            '  max-height:60vh;display:flex;flex-direction:column;background:rgba(16,16,16,.97);color:#fff;border-radius:.5em;',
+            '  box-shadow:0 .5em 2em rgba(0,0,0,.6);overflow:hidden;user-select:none;-webkit-user-select:none}',
+            '.jfPendingPanel.hide{display:none!important}',
+            '.jfPendingFooter{display:flex;gap:.5em;padding:.6em;border-top:1px solid rgba(255,255,255,.1);flex:0 0 auto}',
+            '.jfPendingFooter button{flex:1 1 auto;background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:.3em;',
+            '  padding:.6em;font:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.4em}',
+            '.jfPendingFooter button.jfPendingPlay{background:#00a4dc;font-weight:600}',
+            '.jfPendingFooter button:hover{filter:brightness(1.15)}',
+            '.jfPendingToast{position:fixed;right:1.5em;bottom:5.5em;z-index:902;background:#262626;color:#fff;',
+            '  padding:.7em 1em;border-radius:.4em;box-shadow:0 .3em 1em rgba(0,0,0,.5);max-width:22em;',
+            '  opacity:0;transition:opacity .2s;pointer-events:none}',
+            '.jfPendingToast.jfPendingToastShow{opacity:1}',
+            '@media (max-width:600px){.jfPendingPanel{right:0;left:0;bottom:0;width:auto;max-width:none;border-radius:.5em .5em 0 0}',
+            '  .jfPendingFab{right:1em;bottom:1em}}',
             '.jfQueueHeaderBtns{display:flex;align-items:center;gap:.1em}',
             '.jfQueueHeaderBtns .paper-icon-button-light{color:#fff;opacity:.8}',
             '.jfQueueSeasonBar{display:flex;align-items:center;justify-content:space-between;gap:.5em;padding:.35em .5em;',
@@ -670,7 +723,6 @@
     }
 
     function renderItem(item, o) {
-        var img = getImageUrl(item);
         var label = o.series
             ? (item.IndexNumber != null ? 'E' + item.IndexNumber : '')
             : getEpisodeLabel(item);
@@ -681,7 +733,7 @@
         var meta = [o.series ? '' : getSubtitle(item), mins ? mins + ' min' : ''].filter(Boolean).join(' · ');
         var cls = 'jfQueueItem' + (o.current ? ' jfQueueCurrent' : '') + (o.past ? ' jfQueuePast' : '') + (o.series ? ' jfQueueSeries' : '');
         return '<div class="' + cls + '" tabindex="0" data-itemid="' + escapeHtml(item.Id) + '" data-playlistitemid="' + escapeHtml(o.playlistItemId || '') + '" data-inqueueahead="' + (o.inQueueAhead ? '1' : '0') + '">' +
-            '<div class="jfQueueThumb"' + (img ? ' style="background-image:url(&quot;' + escapeHtml(img) + '&quot;)"' : '') + '>' +
+            '<div ' + thumbAttrs(item) + '>' +
             (o.current ? '<span class="material-icons play_arrow" aria-hidden="true"></span>' : '') +
             (pct ? '<div class="jfQueueProgress" style="width:' + pct + '%"></div>' : '') +
             '</div>' +
@@ -920,6 +972,7 @@
         });
         mo.observe(document.body, { childList: true, subtree: true });
         document.addEventListener('keydown', onKeyDown, true);
+        setInterval(function () { if (pending.length) updatePendingUi(); }, 1500);
     }
 
     /* ------------------------------------------------------------------ */
@@ -1005,7 +1058,280 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /*  7. Init                                                            */
+    /*  7. File en attente (rien en lecture)                               */
+    /* ------------------------------------------------------------------ */
+
+    // Sans lecteur actif, jellyfin-web masque "Ajouter à la file" (canQueue renvoie false)
+    // et queue() retombe sur play(). On enveloppe les trois méthodes : le menu contextuel
+    // natif réapparaît partout et les ajouts s'empilent ici jusqu'à ce qu'on lance la lecture.
+
+    var LEAF_TYPES = { Episode: 1, Movie: 1, Video: 1, Audio: 1, MusicVideo: 1, TvChannel: 1, Program: 1 };
+    var FOLDER_TYPES = { Series: 1, Season: 1, BoxSet: 1, MusicAlbum: 1, MusicArtist: 1, Playlist: 1, Folder: 1, CollectionFolder: 1 };
+
+    function isQueueableType(item) {
+        if (!item) return false;
+        if (LEAF_TYPES[item.Type]) return true;
+        if (FOLDER_TYPES[item.Type]) return true;
+        return item.MediaType === 'Video' || item.MediaType === 'Audio';
+    }
+
+    function loadPending() {
+        try {
+            var raw = sessionStorage.getItem(PENDING_KEY);
+            pending = raw ? JSON.parse(raw) : [];
+        } catch (e) { pending = []; }
+        if (!Array.isArray(pending)) pending = [];
+    }
+
+    function savePending() {
+        try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending)); } catch (e) { /* ignore */ }
+    }
+
+    // Développe un élément de la bibliothèque en éléments lisibles, sans l'extension
+    // "épisode + 100 suivants" que fait jellyfin-web pour un épisode isolé.
+    function expandForQueue(item) {
+        var api = window.ApiClient;
+        if (!api || !item) return Promise.resolve([]);
+        var userId = api.getCurrentUserId();
+        var fields = 'Chapters,Trickplay,MediaSources,PremiereDate,ProductionYear,SortName';
+
+        if (item.Type === 'Season' && item.SeriesId) {
+            return api.getEpisodes(item.SeriesId, { SeasonId: item.Id, UserId: userId, IsMissing: false, IsVirtualUnaired: false, Fields: fields })
+                .then(function (r) { return (r && r.Items) || []; });
+        }
+        if (item.Type === 'Series') {
+            return api.getEpisodes(item.Id, { UserId: userId, IsMissing: false, IsVirtualUnaired: false, Fields: fields })
+                .then(function (r) { return (r && r.Items) || []; });
+        }
+        if (item.Type === 'BoxSet') {
+            return fetchBoxSetChronological(item.Id);
+        }
+        if (item.IsFolder || FOLDER_TYPES[item.Type]) {
+            return api.getItems(userId, {
+                ParentId: item.Id, Recursive: true, Filters: 'IsNotFolder', MediaTypes: 'Video,Audio',
+                Fields: fields, SortBy: 'SortName', EnableTotalRecordCount: false
+            }).then(function (r) { return (r && r.Items) || []; });
+        }
+        return Promise.resolve([item]);
+    }
+
+    function resolveQueueOptions(options) {
+        var api = window.ApiClient;
+        if (options && options.items && options.items.length) return Promise.resolve(options.items);
+        if (options && options.ids && options.ids.length && api) {
+            return api.getItems(api.getCurrentUserId(), { Ids: options.ids.join(','), Fields: 'Chapters,MediaSources' })
+                .then(function (r) { return (r && r.Items) || []; });
+        }
+        return Promise.resolve([]);
+    }
+
+    function addToPending(options, mode) {
+        return resolveQueueOptions(options).then(function (items) {
+            return Promise.all(items.map(expandForQueue));
+        }).then(function (lists) {
+            var flat = [];
+            lists.forEach(function (l) { flat = flat.concat(l); });
+            if (!flat.length) return;
+            if (mode === 'next') pending = flat.concat(pending);
+            else pending = pending.concat(flat);
+            if (pending.length > PENDING_MAX) pending = pending.slice(0, PENDING_MAX);
+            savePending();
+            updatePendingUi();
+            showToast(flat.length + (flat.length > 1 ? ' ' + t('items') + ' ' : ' ') + t('added'));
+        }).catch(function (err) {
+            console.error(TAG, 'addToPending failed', err);
+        });
+    }
+
+    function clearPending() {
+        pending = [];
+        savePending();
+        updatePendingUi();
+    }
+
+    function startPending(append) {
+        var items = pending.slice();
+        if (!items.length || !pm) return;
+        if (append) {
+            try { pm.queue({ items: items }); } catch (e) { console.error(TAG, 'append failed', e); }
+            clearPending();
+            closePendingPanel();
+            return;
+        }
+        Promise.resolve(pm.play({ items: items, startIndex: 0 })).then(function () {
+            // play() étend un épisode isolé à la suite de la série : on ramène la file
+            // à exactement ce que l'utilisateur a empilé.
+            return Promise.resolve(pm.getPlaylist()).then(function (queue) {
+                if (!queue || queue.length <= items.length) return;
+                var wanted = {};
+                items.forEach(function (it) { wanted[it.Id] = (wanted[it.Id] || 0) + 1; });
+                var extra = [];
+                queue.forEach(function (q) {
+                    if (wanted[q.Id]) wanted[q.Id]--;
+                    else extra.push(q.PlaylistItemId);
+                });
+                if (extra.length) pm.removeFromPlaylist(extra);
+            });
+        }).then(function () {
+            clearPending();
+            closePendingPanel();
+        }, function (err) {
+            console.error(TAG, 'lecture de la file en attente impossible', err);
+        });
+    }
+
+    function installPendingQueue() {
+        if (!pm || pm.__jfPendingWrapped) return;
+        var origCanQueue = pm.canQueue;
+        var origQueue = pm.queue;
+        var origQueueNext = pm.queueNext;
+
+        pm.canQueue = function (item) {
+            try {
+                if (this.getCurrentPlayer()) return origCanQueue.apply(this, arguments);
+            } catch (e) { /* ignore */ }
+            return isQueueableType(item);
+        };
+        pm.queue = function (options) {
+            try {
+                if (this.getCurrentPlayer()) return origQueue.apply(this, arguments);
+            } catch (e) { /* ignore */ }
+            return addToPending(options, 'end');
+        };
+        pm.queueNext = function (options) {
+            try {
+                if (this.getCurrentPlayer()) return origQueueNext.apply(this, arguments);
+            } catch (e) { /* ignore */ }
+            return addToPending(options, 'next');
+        };
+        pm.__jfPendingWrapped = true;
+    }
+
+    /* ---- interface de la file en attente ---- */
+
+    function showToast(text) {
+        var el = document.createElement('div');
+        el.className = 'jfPendingToast';
+        el.textContent = text;
+        document.body.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('jfPendingToastShow'); });
+        setTimeout(function () {
+            el.classList.remove('jfPendingToastShow');
+            setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+        }, 2200);
+    }
+
+    function buildPendingUi() {
+        if (pendingUi || !document.body) return;
+        var fab = document.createElement('button');
+        fab.type = 'button';
+        fab.className = 'jfPendingFab hide';
+        fab.innerHTML = '<span class="material-icons playlist_play" aria-hidden="true"></span><span class="jfPendingCount"></span>';
+
+        var panel = document.createElement('div');
+        panel.className = 'jfPendingPanel hide';
+        panel.innerHTML =
+            '<div class="jfQueueHeader">' +
+            '  <div><span class="jfQueueTitle">' + escapeHtml(t('pendingTitle')) + '</span><span class="jfQueueCount"></span></div>' +
+            '  <button type="button" class="jfQueueClose paper-icon-button-light autoSize" title="' + escapeHtml(t('close')) + '">' +
+            '    <span class="material-icons close" aria-hidden="true"></span></button>' +
+            '</div>' +
+            '<div class="jfQueueList"></div>' +
+            '<div class="jfPendingFooter">' +
+            '  <button type="button" class="jfPendingPlay"><span class="material-icons play_arrow" aria-hidden="true"></span>' + escapeHtml(t('play')) + '</button>' +
+            '  <button type="button" class="jfPendingAppend hide"><span class="material-icons playlist_add" aria-hidden="true"></span>' + escapeHtml(t('appendToQueue')) + '</button>' +
+            '  <button type="button" class="jfPendingClear"><span class="material-icons delete_outline" aria-hidden="true"></span>' + escapeHtml(t('clear')) + '</button>' +
+            '</div>';
+
+        fab.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (panel.classList.contains('hide')) openPendingPanel(); else closePendingPanel();
+        });
+        panel.querySelector('.jfQueueClose').addEventListener('click', closePendingPanel);
+        panel.querySelector('.jfPendingPlay').addEventListener('click', function () { startPending(false); });
+        panel.querySelector('.jfPendingAppend').addEventListener('click', function () { startPending(true); });
+        panel.querySelector('.jfPendingClear').addEventListener('click', function () { clearPending(); closePendingPanel(); });
+        panel.querySelector('.jfQueueList').addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-pending-remove]');
+            if (!btn) return;
+            e.stopPropagation();
+            var idx = parseInt(btn.getAttribute('data-pending-remove'), 10);
+            if (idx >= 0) { pending.splice(idx, 1); savePending(); updatePendingUi(); }
+        });
+        document.addEventListener('click', function (e) {
+            if (panel.classList.contains('hide')) return;
+            if (panel.contains(e.target) || fab.contains(e.target)) return;
+            closePendingPanel();
+        }, true);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && !panel.classList.contains('hide')) closePendingPanel();
+        });
+
+        document.body.appendChild(fab);
+        document.body.appendChild(panel);
+        pendingUi = { fab: fab, panel: panel };
+    }
+
+    function renderPendingList() {
+        if (!pendingUi) return;
+        var list = pendingUi.panel.querySelector('.jfQueueList');
+        var count = pendingUi.panel.querySelector('.jfQueueCount');
+        count.textContent = pending.length ? pending.length + ' ' + t('items') : '';
+        if (!pending.length) {
+            list.innerHTML = '<div class="jfQueueEmpty">' + escapeHtml(t('pendingEmpty')) + '</div>';
+            return;
+        }
+        list.innerHTML = pending.map(function (item, i) {
+            var label = getEpisodeLabel(item);
+            var mins = ticksToMinutes(item.RunTimeTicks);
+            var meta = [getSubtitle(item), mins ? mins + ' min' : ''].filter(Boolean).join(' · ');
+            return '<div class="jfQueueItem">' +
+                '<div ' + thumbAttrs(item) + '></div>' +
+                '<div class="jfQueueText">' +
+                '  <div class="jfQueueName">' + (label ? escapeHtml(label) + ' · ' : '') + escapeHtml(item.Name) + '</div>' +
+                '  <div class="jfQueueMeta">' + escapeHtml(meta) + '</div>' +
+                '</div>' +
+                '<div class="jfQueueActions">' +
+                '  <button type="button" class="paper-icon-button-light autoSize" data-pending-remove="' + i + '" title="' + escapeHtml(t('remove')) + '">' +
+                '    <span class="material-icons close" aria-hidden="true"></span></button>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function updatePendingUi() {
+        if (!pending.length) {
+            if (pendingUi) {
+                pendingUi.fab.classList.add('hide');
+                pendingUi.panel.classList.add('hide');
+            }
+            return;
+        }
+        buildPendingUi();
+        if (!pendingUi) return;
+        pendingUi.fab.querySelector('.jfPendingCount').textContent = pending.length;
+        // masqué dans le lecteur : la file y est déjà accessible par le bouton de l'OSD
+        var inPlayer = !!getActiveOsdPage();
+        pendingUi.fab.classList.toggle('hide', inPlayer);
+        if (inPlayer) pendingUi.panel.classList.add('hide');
+        var playing = false;
+        try { playing = !!pm.getCurrentPlayer(); } catch (e) { /* ignore */ }
+        pendingUi.panel.querySelector('.jfPendingAppend').classList.toggle('hide', !playing);
+        renderPendingList();
+    }
+
+    function openPendingPanel() {
+        if (!pendingUi) return;
+        renderPendingList();
+        pendingUi.panel.classList.remove('hide');
+    }
+
+    function closePendingPanel() {
+        if (pendingUi) pendingUi.panel.classList.add('hide');
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  8. Init                                                            */
     /* ------------------------------------------------------------------ */
 
     function init() {
@@ -1014,9 +1340,12 @@
             pm = found;
             window.__jfQueueOsd.playbackManager = pm;
             installBoxSetOrdering();
+            installPendingQueue();
+            loadPending();
             console.debug(TAG, 'v' + VERSION + ' – playbackManager found');
-            if (document.body) watchForOsd();
-            else document.addEventListener('DOMContentLoaded', watchForOsd);
+            var start = function () { watchForOsd(); updatePendingUi(); };
+            if (document.body) start();
+            else document.addEventListener('DOMContentLoaded', start);
         }).catch(function () {
             console.warn(TAG, 'playbackManager not found – unsupported jellyfin-web version?');
         });

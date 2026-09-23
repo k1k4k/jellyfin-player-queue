@@ -16,6 +16,7 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 - **Vue file** (bouton dans l'en-tête) : **réordonner par glisser-déposer** avec la poignée ⋮⋮ (souris ou doigt ; jamais avant l'épisode en cours).
 - **Collections** : lancées dans l'**ordre chronologique** (date de sortie, sinon année, sinon nom) au lieu de l'ordre d'ajout de Jellyfin ; la lecture aléatoire reste aléatoire.
 - **Autre contenu** (film dans une playlist, musique…) : vue « file de lecture » classique, avec les mêmes glisser-déposer et retrait.
+- **Construire une file sans rien lancer** : dans la bibliothèque, « Ajouter à la file d'attente » / « Lire ensuite » du menu de Jellyfin fonctionnent même quand aucune lecture n'est en cours (Jellyfin les masque dans ce cas). Les éléments — épisodes de saisons ou de séries différentes, films, saisons entières, collections — s'empilent dans une **file en attente** ; une pastille en bas à droite l'ouvre, on y retire ce qu'on veut, puis **Lire** démarre exactement cette sélection. La file survit à la navigation et au rechargement de la page.
 - Interface en français ou en anglais selon la langue du navigateur.
 
 ## Compatibilité
@@ -127,5 +128,7 @@ MIT — voir [LICENSE](LICENSE).
 Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the settings gear. Reorder the queue by drag & drop, remove items, and use *Play next* / *Add to queue* on any episode. For a series it shows the **current season** (previous episodes included) with `◀ Season N ▶` navigation and a season dropdown; clicking an episode plays it right away. Episodes already in the queue are jumped to in place; others (previous episodes, other seasons) start a new "play from here" queue up to the end of the series, across seasons, so playback continues into the next season. For non-series content it lists the play queue.
 
 Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
+
+Build a queue without playing anything: *Add to play queue* / *Play next* in Jellyfin's own menus now work when nothing is playing (Jellyfin hides them otherwise). Items pile up in a **pending queue** — a badge at the bottom right opens it, and *Play* starts exactly that selection.
 
 **Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Jellyfin Player Queue** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.
