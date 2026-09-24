@@ -11,7 +11,8 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 - Ajoute un bouton <img src="docs/playlist_play.svg" width="22" height="22" alt="playlist_play" align="absmiddle"> à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
 - **Série** (quel que soit le point de départ : série, saison, épisode, « Lire à partir d'ici ») : le panneau affiche la **saison en cours**, épisodes précédents compris, avec `◀ Saison N ▶` et une liste déroulante pour changer de saison. L'épisode en cours est surligné, coche « vu », barre de progression, vignettes.
 - Un clic sur un épisode → lecture immédiate. Si l'épisode est déjà dans la file (les suivants), la file est conservée ; sinon (épisode précédent, autre saison) une nouvelle file « à partir d'ici » est construite jusqu'à la fin de la série, **toutes saisons confondues** : la lecture enchaîne bien sur la saison suivante. Le réglage Jellyfin « Lire automatiquement l'épisode suivant » reste respecté.
-- Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche.
+- Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche. Il s'ouvre immédiatement (seule la saison en cours est chargée, le reste arrive en tâche de fond) et garde sa position quand on agit sur la file.
+- **« Tout lire à partir d'ici » sur une saison** démarre bien à cette saison : Jellyfin repart sinon du début de la série.
 - Menu `⋮` sur chaque épisode : **Lire ensuite** (inséré juste après l'épisode en cours), **Ajouter à la fin de la file**, **Retirer de la file** ; une coche bleue signale les épisodes déjà dans la file à venir.
 - **Vue file** (bouton dans l'en-tête) : **réordonner par glisser-déposer** avec la poignée ⋮⋮ (souris ou doigt ; jamais avant l'épisode en cours).
 - **Collections** : lancées dans l'**ordre chronologique** (date de sortie, sinon année, sinon nom) au lieu de l'ordre d'ajout de Jellyfin ; la lecture aléatoire reste aléatoire.

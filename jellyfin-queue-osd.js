@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.5.1
+ * Jellyfin Player Queue — v0.6.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.5.1';
+    var VERSION = '0.6.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -39,6 +39,7 @@
     var selectedSeasonId = null;
     var lastCurrentItemId = null;
     var dragging = null;      // état du glisser-déposer en cours (vue file)
+    var revalidate = false;   // recharger en tâche de fond la saison affichée (cache possiblement périmé)
     var suppressClickUntil = 0; // ignore le clic qui suit un glisser-déposer
 
     // File en attente : ce que l'utilisateur empile depuis la bibliothèque quand rien ne joue.
@@ -59,7 +60,8 @@
               pendingTitle: 'File en attente', pendingEmpty: 'Rien en attente.', play: 'Lire', clear: 'Vider',
               appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments',
               full: 'File en attente pleine ({0} éléments) : rien ajouté.', partial: '{0} ajouté(s), {1} ignoré(s) : file pleine ({2} maximum).',
-              trimmed: '{0} ajouté(s) en tête ; {1} retiré(s) de la fin (file pleine, {2} maximum).' },
+              trimmed: '{0} ajouté(s) en tête ; {1} retiré(s) de la fin (file pleine, {2} maximum).',
+              partialMore: '{0} ajouté(s) : file pleine ({1} maximum), le reste a été ignoré.' },
         en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
               showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
@@ -67,7 +69,8 @@
               pendingTitle: 'Pending queue', pendingEmpty: 'Nothing pending.', play: 'Play', clear: 'Clear',
               appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items',
               full: 'Pending queue is full ({0} items): nothing added.', partial: '{0} added, {1} skipped: queue is full ({2} max).',
-              trimmed: '{0} added at the top; {1} dropped from the end (queue full, {2} max).' }
+              trimmed: '{0} added at the top; {1} dropped from the end (queue full, {2} max).',
+              partialMore: '{0} added: queue is full ({1} max), the rest was ignored.' }
     };
 
     function getLang() {
@@ -372,7 +375,7 @@
         panel.querySelector('.jfQueueSeasonNext').addEventListener('click', function () { stepSeason(1); });
         panel.querySelector('.jfQueueSeasonSelect').addEventListener('change', function () {
             selectedSeasonId = this.value;
-            renderSeries();
+            renderSeries({ center: true });
         });
 
         page.appendChild(panel);
@@ -410,17 +413,20 @@
 
         if (itemId && series) {
             // épisode hors file (ex. épisode précédent) : "lire à partir d'ici",
-            // la nouvelle file = cet épisode puis tout le reste de la série (toutes saisons)
-            var all = allEpisodes();
-            var idx = -1;
-            for (var i = 0; i < all.length; i++) { if (all[i].Id === itemId) { idx = i; break; } }
-            if (idx < 0) return;
-            try {
-                pm.play({ items: all.slice(idx), startIndex: 0 });
-            } catch (err) {
-                console.error(TAG, 'play failed', err);
-            }
+            // la nouvelle file = cet épisode puis tout le reste de la série (toutes saisons).
+            // Les saisons non encore chargées le sont à ce moment (en principe déjà
+            // préchargées en tâche de fond).
             closePanel();
+            ensureAllEpisodes().then(function (all) {
+                var idx = -1;
+                for (var i = 0; i < all.length; i++) { if (all[i].Id === itemId) { idx = i; break; } }
+                if (idx < 0) return;
+                try {
+                    pm.play({ items: all.slice(idx), startIndex: 0 });
+                } catch (err) {
+                    console.error(TAG, 'play failed', err);
+                }
+            });
         }
     }
 
@@ -455,19 +461,64 @@
         var out = [];
         if (!series) return out;
         // ordre de lecture : saisons par numéro (spéciaux à la fin), épisodes par numéro
-        series.seasons.forEach(function (s) { out = out.concat(s.episodes); });
+        series.seasons.forEach(function (s) { if (s.episodes) out = out.concat(s.episodes); });
         return out;
     }
 
-    function loadSeries(seriesId) {
+    // Pour afficher une ligne il suffit des champs renvoyés par défaut (nom, numéros,
+    // durée, UserData, ImageTags) : on ne demande pas MediaSources / Chapters / Trickplay,
+    // qui pèsent l'essentiel de la réponse sur une longue série.
+    var EPISODE_FIELDS = 'PrimaryImageAspectRatio';
+
+    function seasonRank(sn) {
+        return sn.index == null ? 1e9 : (sn.index === 0 ? 1e9 - 1 : sn.index);
+    }
+
+    function sortEpisodes(list) {
+        return list.sort(function (a, b) { return (a.IndexNumber || 0) - (b.IndexNumber || 0); });
+    }
+
+    // Squelette de la série : les saisons seules (requête légère), épisodes chargés à la demande.
+    function loadSeasons(seriesId) {
         var api = window.ApiClient;
-        if (!api || typeof api.getEpisodes !== 'function') return Promise.reject(new Error('no ApiClient'));
+        if (!api || typeof api.getSeasons !== 'function') return Promise.reject(new Error('no ApiClient'));
+        return api.getSeasons(seriesId, { UserId: api.getCurrentUserId() }).then(function (result) {
+            var items = (result && result.Items) || [];
+            if (!items.length) return null;
+            var seasons = items.map(function (sn) {
+                return {
+                    id: sn.Id,
+                    index: sn.IndexNumber,
+                    name: sn.Name || (sn.IndexNumber === 0 ? t('specials') : (sn.IndexNumber != null ? t('season') + ' ' + sn.IndexNumber : t('season'))),
+                    episodes: null
+                };
+            });
+            seasons.sort(function (a, b) { return seasonRank(a) - seasonRank(b); });
+            return { seriesId: seriesId, seasons: seasons, complete: false };
+        });
+    }
+
+    function loadSeasonEpisodes(seriesId, seasonId) {
+        var api = window.ApiClient;
+        return api.getEpisodes(seriesId, {
+            SeasonId: seasonId,
+            UserId: api.getCurrentUserId(),
+            IsMissing: false,
+            IsVirtualUnaired: false,
+            Fields: EPISODE_FIELDS
+        }).then(function (result) {
+            return sortEpisodes((result && result.Items) || []);
+        });
+    }
+
+    // Repli : une seule requête sur toute la série (séries sans saisons déclarées).
+    function loadSeriesFlat(seriesId) {
+        var api = window.ApiClient;
         return api.getEpisodes(seriesId, {
             UserId: api.getCurrentUserId(),
             IsMissing: false,
             IsVirtualUnaired: false,
-            Fields: 'MediaSources,Chapters,Trickplay',
-            EnableImages: true
+            Fields: EPISODE_FIELDS
         }).then(function (result) {
             var items = (result && result.Items) || [];
             var bySeason = {};
@@ -486,12 +537,78 @@
                 }
                 bySeason[key].episodes.push(ep);
             });
-            var rank = function (s) { return s.index == null ? 1e9 : (s.index === 0 ? 1e9 - 1 : s.index); };
-            seasons.sort(function (a, b) { return rank(a) - rank(b); });
-            seasons.forEach(function (s) {
-                s.episodes.sort(function (a, b) { return (a.IndexNumber || 0) - (b.IndexNumber || 0); });
+            seasons.sort(function (a, b) { return seasonRank(a) - seasonRank(b); });
+            seasons.forEach(function (sn) { sortEpisodes(sn.episodes); });
+            return { seriesId: seriesId, seasons: seasons, complete: true };
+        });
+    }
+
+    function loadSeries(seriesId) {
+        var api = window.ApiClient;
+        if (!api || typeof api.getEpisodes !== 'function') return Promise.reject(new Error('no ApiClient'));
+        return loadSeasons(seriesId).then(function (data) {
+            return data || loadSeriesFlat(seriesId);
+        }, function () {
+            return loadSeriesFlat(seriesId);
+        });
+    }
+
+    function seasonById(id) {
+        if (!series) return null;
+        for (var i = 0; i < series.seasons.length; i++) if (series.seasons[i].id === id) return series.seasons[i];
+        return null;
+    }
+
+    // Garantit que les épisodes d'une saison sont en cache.
+    function ensureSeason(sn) {
+        if (!sn) return Promise.resolve(null);
+        if (sn.episodes) return Promise.resolve(sn);
+        if (sn.loading) return sn.loading;
+        var seriesId = series.seriesId;
+        sn.loading = loadSeasonEpisodes(seriesId, sn.id).then(function (eps) {
+            sn.episodes = eps;
+            sn.loading = null;
+            return sn;
+        }, function (err) {
+            sn.loading = null;
+            throw err;
+        });
+        return sn.loading;
+    }
+
+    // Charge les saisons restantes en tâche de fond : le panneau est utilisable tout de
+    // suite, et un clic sur un épisode hors file trouve la série complète sans attendre.
+    function prefetchSeasons() {
+        if (!series || series.complete || series.__prefetching) return;
+        var target = series;
+        target.__prefetching = true;
+        var rest = target.seasons.filter(function (sn) { return !sn.episodes; });
+        var chain = Promise.resolve();
+        rest.forEach(function (sn) {
+            chain = chain.then(function () {
+                if (series !== target) return null;   // la série a changé entre-temps
+                return ensureSeason(sn).catch(function () { return null; });
             });
-            return { seriesId: seriesId, seasons: seasons };
+        });
+        chain.then(function () {
+            target.__prefetching = false;
+            if (series !== target) return;
+            target.complete = target.seasons.every(function (sn) { return !!sn.episodes; });
+        });
+    }
+
+    // Série complète (pour "lire à partir d'ici" toutes saisons confondues).
+    function ensureAllEpisodes() {
+        if (!series) return Promise.resolve([]);
+        var target = series;
+        var chain = Promise.resolve();
+        target.seasons.forEach(function (sn) {
+            chain = chain.then(function () { return ensureSeason(sn).catch(function () { return null; }); });
+        });
+        return chain.then(function () {
+            if (series !== target) return [];
+            target.complete = true;
+            return allEpisodes();
         });
     }
 
@@ -506,10 +623,11 @@
         var i = seasonIndexOf(selectedSeasonId) + delta;
         if (i < 0 || i >= series.seasons.length) return;
         selectedSeasonId = series.seasons[i].id;
-        renderSeries();
+        renderSeries({ center: true });
     }
 
-    function renderSeries() {
+    function renderSeries(opts) {
+        opts = opts || {};
         var list = panel.querySelector('.jfQueueList');
         var count = panel.querySelector('.jfQueueCount');
         var bar = panel.querySelector('.jfQueueSeasonBar');
@@ -525,9 +643,23 @@
         }).join('');
         panel.querySelector('.jfQueueSeasonPrev').toggleAttribute('disabled', si <= 0);
         panel.querySelector('.jfQueueSeasonNext').toggleAttribute('disabled', si >= series.seasons.length - 1);
-
         panel.querySelector('.jfQueueTitle').textContent = current.SeriesName || t('queue');
-        count.textContent = season ? season.episodes.length + ' ' + t('episodes') : '';
+
+        if (!season) { list.innerHTML = ''; count.textContent = ''; return; }
+        if (!season.episodes) {
+            list.innerHTML = '<div class="jfQueueEmpty">' + escapeHtml(t('loading')) + '</div>';
+            count.textContent = '';
+            var pendingSeason = season;
+            ensureSeason(season).then(function () {
+                if (series && selectedSeasonId === pendingSeason.id) renderSeries(opts);
+            }, function (err) {
+                console.error(TAG, 'loadSeasonEpisodes failed', err);
+                list.innerHTML = '<div class="jfQueueEmpty">' + escapeHtml(t('loadError')) + '</div>';
+            });
+            return;
+        }
+
+        count.textContent = season.episodes.length + ' ' + t('episodes');
 
         // correspondance épisode -> PlaylistItemId (pour sauter sans casser la file)
         Promise.resolve(pm.getPlaylist()).then(function (queue) {
@@ -535,8 +667,9 @@
             (queue || []).forEach(function (q, i) { plid[q.Id] = q.PlaylistItemId; qidx[q.Id] = i; });
             var qcur = currentQueueIndex();
             var currentIdx = -1;
-            (season ? season.episodes : []).forEach(function (ep, i) { if (ep.Id === current.Id) currentIdx = i; });
-            list.innerHTML = (season ? season.episodes : []).map(function (ep, i) {
+            season.episodes.forEach(function (ep, i) { if (ep.Id === current.Id) currentIdx = i; });
+            var scroll = list.scrollTop;
+            list.innerHTML = season.episodes.map(function (ep, i) {
                 return renderItem(ep, {
                     current: ep.Id === current.Id,
                     past: currentIdx >= 0 && i < currentIdx,
@@ -545,8 +678,38 @@
                     series: true
                 });
             }).join('');
+            // on ne recentre que lorsque le contexte change (ouverture, changement
+            // d'épisode ou de saison) : sinon on garde la position de lecture.
             var cur = list.querySelector('.jfQueueCurrent');
-            if (cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
+            if (opts.center && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
+            else list.scrollTop = scroll;
+        });
+    }
+
+    // Met à jour les marqueurs de file (ligne dans la file, coche bleue) sans reconstruire
+    // la liste : la position de défilement et le rendu restent stables.
+    function refreshMarkers() {
+        if (!pm || !panel || panel.classList.contains('hide')) return;
+        Promise.resolve(pm.getPlaylist()).then(function (queue) {
+            var plid = {}, qidx = {};
+            (queue || []).forEach(function (q, i) { plid[q.Id] = q.PlaylistItemId; qidx[q.Id] = i; });
+            var qcur = currentQueueIndex();
+            var rows = panel.querySelectorAll('.jfQueueItem');
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var id = row.getAttribute('data-itemid');
+                var ahead = qidx[id] != null && qidx[id] > qcur;
+                row.setAttribute('data-playlistitemid', plid[id] || '');
+                row.setAttribute('data-inqueueahead', ahead ? '1' : '0');
+                var mark = row.querySelector('.jfQueueInQueue');
+                var actions = row.querySelector('.jfQueueActions');
+                if (ahead && !mark && actions) {
+                    actions.insertAdjacentHTML('afterbegin',
+                        '<span class="material-icons playlist_add_check jfQueueInQueue" title="' + escapeHtml(t('inQueue')) + '" aria-hidden="true"></span>');
+                } else if (!ahead && mark) {
+                    mark.parentNode.removeChild(mark);
+                }
+            }
         });
     }
 
@@ -561,6 +724,8 @@
         for (var i = 0; i < all.length; i++) if (all[i].Id === itemId) return all[i];
         return null;
     }
+
+    // renderList (vue file) conserve aussi la position de défilement
 
     // Ajout d'un épisode seul à la file. L'API publique queue()/queueNext() étend un épisode
     // isolé à "lui + les 100 suivants de la série" (translateItemsForPlayback) ; pour n'ajouter
@@ -584,7 +749,12 @@
         if (!row || !pm) return;
         var plid = row.getAttribute('data-playlistitemid');
         var itemId = row.getAttribute('data-itemid');
-        var done = function () { series = null; refresh(); };
+        // La liste des épisodes n'a pas changé : on ne rafraîchit que les marqueurs de file
+        // (et, en vue file, la liste elle-même puisqu'un élément a pu disparaître).
+        var done = function () {
+            if (view === 'queue' || !row.classList.contains('jfQueueSeries')) refreshQueue();
+            else refreshMarkers();
+        };
         try {
             if (action === 'remove' && plid) {
                 pm.removeFromPlaylist([plid]);
@@ -791,6 +961,8 @@
         var remaining = currentIndex >= 0 ? items.length - currentIndex - 1 : items.length;
         count.textContent = remaining + ' ' + t('remaining');
 
+        var scroll = list.scrollTop;
+        var hadRows = !!list.querySelector('.jfQueueItem');
         list.innerHTML = items.map(function (item, idx) {
             return renderItem(item, {
                 current: idx === currentIndex,
@@ -801,8 +973,10 @@
         }).join('');
 
         var cur = list.querySelector('.jfQueueCurrent');
-        if (cur && typeof cur.scrollIntoView === 'function') {
+        if (!hadRows && cur && typeof cur.scrollIntoView === 'function') {
             cur.scrollIntoView({ block: 'center' });
+        } else {
+            list.scrollTop = scroll;
         }
     }
 
@@ -854,12 +1028,27 @@
             })();
 
         ready.then(function (data) {
+            var isNew = series !== data;
             series = data;
             // suit l'épisode en cours (changement d'épisode / de saison), sinon garde la saison choisie
             if (changedItem || seasonIndexOf(selectedSeasonId) < 0) {
                 selectedSeasonId = current.SeasonId || selectedSeasonId;
             }
-            renderSeries();
+            renderSeries({ center: changedItem || isNew });
+            if (revalidate && !isNew) {
+                revalidate = false;
+                var sn = seasonById(selectedSeasonId);
+                if (sn && sn.episodes) {
+                    loadSeasonEpisodes(series.seriesId, sn.id).then(function (eps) {
+                        if (!series || seasonById(sn.id) !== sn) return;
+                        if (JSON.stringify(eps) === JSON.stringify(sn.episodes)) return;
+                        sn.episodes = eps;
+                        renderSeries({ center: false });
+                    }, function () { /* le cache reste affiché */ });
+                }
+            }
+            revalidate = false;
+            prefetchSeasons();
         }).catch(function (err) {
             console.error(TAG, 'loadSeries failed', err);
             panel.querySelector('.jfQueueList').innerHTML = '<div class="jfQueueEmpty">' + escapeHtml(t('loadError')) + '</div>';
@@ -869,8 +1058,8 @@
     function openPanel() {
         if (!panel) return;
         panel.classList.remove('hide');
-        series = null;              // recharge la série à chaque ouverture (statut "vu", progression)
-        lastCurrentItemId = null;
+        revalidate = true;          // rafraîchit en tâche de fond les "vu"/progression du cache
+        lastCurrentItemId = null;   // force le recentrage sur l'épisode en cours
         view = 'auto';              // la vue "file brute" n'est pas mémorisée d'une ouverture à l'autre
         refresh();
         clearInterval(refreshTimer);
@@ -1002,10 +1191,10 @@
         return '9999-99-99';
     }
 
-    function fetchBoxSetChronological(boxSetId) {
+    function fetchBoxSetChronological(boxSetId, limit) {
         var api = window.ApiClient;
         if (!api || typeof api.getItems !== 'function') return Promise.reject(new Error('no ApiClient'));
-        return api.getItems(api.getCurrentUserId(), {
+        var query = {
             ParentId: boxSetId,
             Recursive: true,
             Filters: 'IsNotFolder',
@@ -1015,7 +1204,9 @@
             SortOrder: 'Ascending',
             EnableTotalRecordCount: false,
             CollapseBoxSetItems: false
-        }).then(function (result) {
+        };
+        if (limit) query.Limit = limit;
+        return api.getItems(api.getCurrentUserId(), query).then(function (result) {
             var items = (result && result.Items) || [];
             // tri stable côté client : le serveur peut placer les dates manquantes n'importe où
             return items.map(function (it, i) { return { it: it, i: i, k: chronoKey(it) + '|' + (it.SortName || it.Name || '') }; })
@@ -1040,29 +1231,101 @@
         return null;
     }
 
+    function cloneOptions(options, overrides) {
+        var o = {};
+        for (var k in options) if (Object.prototype.hasOwnProperty.call(options, k)) o[k] = options[k];
+        for (var j in overrides) if (Object.prototype.hasOwnProperty.call(overrides, j)) o[j] = overrides[j];
+        return o;
+    }
+
+    // "Lire à partir d'ici" sur une liste de saisons : jellyfin-web passe play({ids:[toutes
+    // les saisons], startIndex}), et sa résolution interne n'honore le SeasonId que si un
+    // seul élément est fourni — sinon elle repart des 100 premiers épisodes de la série
+    // (donc S01E01). On déplie nous-mêmes à partir de la saison choisie.
+    function detectSeasonStart(options) {
+        if (!options || options.shuffle) return null;
+        var startIndex = options.startIndex || 0;
+        if (startIndex <= 0) return null;   // démarrage sur le premier élément : natif correct
+        var api = window.ApiClient;
+        if (options.items && options.items.length > 1) {
+            return Promise.resolve(options.items);
+        }
+        if (!options.items && options.ids && options.ids.length > 1 && api && typeof api.getItems === 'function') {
+            return api.getItems(api.getCurrentUserId(), { Ids: options.ids.join(',') }).then(function (r) {
+                var items = (r && r.Items) || [];
+                // getItems ne garantit pas l'ordre demandé : on remet la sélection dans l'ordre
+                var byId = {};
+                items.forEach(function (it) { byId[it.Id] = it; });
+                return options.ids.map(function (id) { return byId[id]; }).filter(Boolean);
+            });
+        }
+        return null;
+    }
+
+    // Épisodes des saisons retenues, dans l'ordre, en une seule requête.
+    function episodesFromSeasons(seasons) {
+        var api = window.ApiClient;
+        var seriesId = seasons[0] && (seasons[0].SeriesId || seasons[0].ParentId);
+        if (!api || !seriesId) return Promise.resolve([]);
+        var keep = {};
+        seasons.forEach(function (sn) { keep[sn.Id] = true; });
+        return api.getEpisodes(seriesId, {
+            UserId: api.getCurrentUserId(),
+            IsMissing: false,
+            IsVirtualUnaired: false,
+            Fields: 'Chapters,Trickplay,MediaSources'
+        }).then(function (r) {
+            return ((r && r.Items) || []).filter(function (ep) { return keep[ep.SeasonId]; });
+        });
+    }
+
     function installBoxSetOrdering() {
         if (!pm || pm.__jfPlaylistPlayWrapped || typeof pm.play !== 'function') return;
         var origPlay = pm.play;
         pm.play = function (options) {
             var self = this;
             var args = arguments;
+
+            // 1. collection lancée telle quelle -> ordre chronologique
             var detect = null;
             try { detect = detectBoxSet(options); } catch (e) { detect = null; }
-            if (!detect) return origPlay.apply(self, args);
-            return detect.then(function (boxSetId) {
-                if (!boxSetId) return origPlay.apply(self, args);
-                return fetchBoxSetChronological(boxSetId).then(function (sorted) {
-                    if (!sorted.length) return origPlay.apply(self, args);
-                    var o = {};
-                    for (var k in options) if (Object.prototype.hasOwnProperty.call(options, k)) o[k] = options[k];
-                    delete o.ids;
-                    o.items = sorted;
-                    o.startIndex = 0;
-                    console.debug(TAG, 'collection ' + boxSetId + ' : ' + sorted.length + ' éléments en ordre chronologique');
-                    return origPlay.call(self, o);
+            if (detect) {
+                return detect.then(function (boxSetId) {
+                    if (!boxSetId) return origPlay.apply(self, args);
+                    return fetchBoxSetChronological(boxSetId).then(function (sorted) {
+                        if (!sorted.length) return origPlay.apply(self, args);
+                        console.debug(TAG, 'collection ' + boxSetId + ' : ' + sorted.length + ' éléments en ordre chronologique');
+                        return origPlay.call(self, cloneOptions(options, { items: sorted, ids: undefined, startIndex: 0 }));
+                    });
+                }).catch(function (err) {
+                    console.warn(TAG, 'ordre chronologique impossible, lecture normale', err);
+                    return origPlay.apply(self, args);
+                });
+            }
+
+            // 2. "lire à partir d'ici" au milieu d'une liste
+            var fromHere = null;
+            try { fromHere = detectSeasonStart(options); } catch (e) { fromHere = null; }
+            if (!fromHere) return origPlay.apply(self, args);
+
+            return fromHere.then(function (items) {
+                var startIndex = options.startIndex || 0;
+                var selected = items[startIndex];
+                // on ne dévie que pour une liste de saisons ; tout le reste garde le
+                // comportement natif (on repasse les items déjà récupérés pour ne pas
+                // refaire la requête côté playbackManager)
+                if (!selected || selected.Type !== 'Season') {
+                    if (options.items) return origPlay.apply(self, args);
+                    return origPlay.call(self, cloneOptions(options, { items: items, ids: undefined }));
+                }
+                var seasons = items.slice(startIndex).filter(function (it) { return it.Type === 'Season'; });
+                return episodesFromSeasons(seasons).then(function (eps) {
+                    if (!eps.length) return origPlay.apply(self, args);
+                    console.debug(TAG, 'lecture à partir de « ' + (selected.Name || selected.Id) + ' » : ' + eps.length + ' épisodes');
+                    return origPlay.call(self, cloneOptions(options, { items: eps, ids: undefined, startIndex: 0 }));
                 });
             }).catch(function (err) {
-                console.warn(TAG, 'ordre chronologique impossible, lecture normale', err);
+                console.warn(TAG, 'démarrage à la saison choisie impossible, lecture normale', err);
                 return origPlay.apply(self, args);
             });
         };
@@ -1101,30 +1364,44 @@
 
     // Développe un élément de la bibliothèque en éléments lisibles, sans l'extension
     // "épisode + 100 suivants" que fait jellyfin-web pour un épisode isolé.
-    function expandForQueue(item) {
+    // Déplie un élément de la bibliothèque, en ne demandant au serveur que `limit`
+    // éléments : sélectionner 50 séries ne doit pas rapatrier 11 000 épisodes pour en
+    // garder 200. Renvoie { items, total } — total vient du serveur (TotalRecordCount).
+    function expandForQueue(item, limit) {
         var api = window.ApiClient;
-        if (!api || !item) return Promise.resolve([]);
+        if (!api || !item || limit <= 0) return Promise.resolve({ items: [], total: 0 });
         var userId = api.getCurrentUserId();
-        var fields = 'Chapters,Trickplay,MediaSources,PremiereDate,ProductionYear,SortName';
+        var fields = 'SortName';   // PremiereDate / ProductionYear sont déjà renvoyés par défaut
+        var take = function (r) {
+            var items = (r && r.Items) || [];
+            var total = (r && typeof r.TotalRecordCount === 'number' && r.TotalRecordCount) || items.length;
+            return { items: items, total: total };
+        };
 
         if (item.Type === 'Season' && item.SeriesId) {
-            return api.getEpisodes(item.SeriesId, { SeasonId: item.Id, UserId: userId, IsMissing: false, IsVirtualUnaired: false, Fields: fields })
-                .then(function (r) { return (r && r.Items) || []; });
+            return api.getEpisodes(item.SeriesId, {
+                SeasonId: item.Id, UserId: userId, IsMissing: false, IsVirtualUnaired: false,
+                Fields: fields, Limit: limit, EnableTotalRecordCount: true
+            }).then(take);
         }
         if (item.Type === 'Series') {
-            return api.getEpisodes(item.Id, { UserId: userId, IsMissing: false, IsVirtualUnaired: false, Fields: fields })
-                .then(function (r) { return (r && r.Items) || []; });
+            return api.getEpisodes(item.Id, {
+                UserId: userId, IsMissing: false, IsVirtualUnaired: false,
+                Fields: fields, Limit: limit, EnableTotalRecordCount: true
+            }).then(take);
         }
         if (item.Type === 'BoxSet') {
-            return fetchBoxSetChronological(item.Id);
+            return fetchBoxSetChronological(item.Id, limit).then(function (items) {
+                return { items: items, total: items.length };
+            });
         }
         if (item.IsFolder || FOLDER_TYPES[item.Type]) {
             return api.getItems(userId, {
                 ParentId: item.Id, Recursive: true, Filters: 'IsNotFolder', MediaTypes: 'Video,Audio',
-                Fields: fields, SortBy: 'SortName', EnableTotalRecordCount: false
-            }).then(function (r) { return (r && r.Items) || []; });
+                Fields: fields, SortBy: 'SortName', Limit: limit, EnableTotalRecordCount: true
+            }).then(take);
         }
-        return Promise.resolve([item]);
+        return Promise.resolve({ items: [item], total: 1 });
     }
 
     function resolveQueueOptions(options) {
@@ -1138,22 +1415,45 @@
     }
 
     function addToPending(options, mode) {
+        // Place disponible : en mode "fin" ce qui reste, en mode "lire ensuite" la file
+        // entière (l'insertion en tête rogne la fin).
+        var room = mode === 'next' ? PENDING_MAX : PENDING_MAX - pending.length;
+        if (room <= 0) {
+            showToast(t('full', PENDING_MAX));
+            return Promise.resolve();
+        }
         return resolveQueueOptions(options).then(function (items) {
-            return Promise.all(items.map(expandForQueue));
-        }).then(function (lists) {
             var flat = [];
-            lists.forEach(function (l) { flat = flat.concat(l); });
+            var known = 0;          // total réel des éléments parcourus
+            var stoppedEarly = false;
+            var chain = Promise.resolve();
+            items.forEach(function (it) {
+                chain = chain.then(function () {
+                    if (flat.length >= room) { stoppedEarly = true; return null; }
+                    return expandForQueue(it, room - flat.length).then(function (r) {
+                        flat = flat.concat(r.items);
+                        known += r.total;
+                    });
+                });
+            });
+            return chain.then(function () {
+                return { flat: flat.slice(0, room), known: known, stoppedEarly: stoppedEarly };
+            });
+        }).then(function (res) {
+            var flat = res.flat;
             if (!flat.length) return;
             var addedMsg = function (n) {
                 return n + (n > 1 ? ' ' + t('items') + ' ' : ' ') + t('added');
             };
 
+            // ce qu'on sait avoir laissé de côté (les requêtes s'arrêtent à la limite,
+            // donc le compte n'est exact que si on a parcouru tous les éléments choisis)
+            var skipped = Math.max(0, res.known - flat.length);
+
             if (mode === 'next') {
                 // "Lire ensuite" doit toujours aboutir : on insère en tête et, si la file
                 // déborde, on rogne la fin plutôt que de refuser l'ajout.
-                var head = flat.length > PENDING_MAX ? flat.slice(0, PENDING_MAX) : flat;
-                var skippedNew = flat.length - head.length;
-                pending = head.concat(pending);
+                pending = flat.concat(pending);
                 var dropped = 0;
                 if (pending.length > PENDING_MAX) {
                     dropped = pending.length - PENDING_MAX;
@@ -1161,23 +1461,18 @@
                 }
                 savePending();
                 updatePendingUi();
-                if (skippedNew > 0) showToast(t('partial', head.length, skippedNew, PENDING_MAX));
-                else if (dropped > 0) showToast(t('trimmed', head.length, dropped, PENDING_MAX));
-                else showToast(addedMsg(head.length));
+                if (res.stoppedEarly) showToast(t('partialMore', flat.length, PENDING_MAX));
+                else if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
+                else if (dropped > 0) showToast(t('trimmed', flat.length, dropped, PENDING_MAX));
+                else showToast(addedMsg(flat.length));
                 return;
             }
 
-            var room = PENDING_MAX - pending.length;
-            if (room <= 0) {
-                showToast(t('full', PENDING_MAX));
-                return;
-            }
-            var skipped = flat.length - room;
-            if (skipped > 0) flat = flat.slice(0, room);
             pending = pending.concat(flat);
             savePending();
             updatePendingUi();
-            if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
+            if (res.stoppedEarly) showToast(t('partialMore', flat.length, PENDING_MAX));
+            else if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
             else showToast(addedMsg(flat.length));
         }).catch(function (err) {
             console.error(TAG, 'addToPending failed', err);
