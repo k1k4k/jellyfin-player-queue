@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/icon.png",
     "versions": [
       {
+        "version": "0.6.0.0",
+        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.6.0",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.6.0/jellyfin-player-queue_0.6.0.0_jf10.zip",
+        "checksum": "fcedd00281e44aab2f6279f3af7d5c34",
+        "timestamp": "2026-09-24T20:17:30Z"
+      },
+      {
         "version": "0.5.1.0",
         "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.5.1",
         "targetAbi": "10.11.0.0",
