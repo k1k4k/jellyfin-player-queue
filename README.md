@@ -18,6 +18,7 @@ Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une
 - **Collections** : lancées dans l'**ordre chronologique** (date de sortie, sinon année, sinon nom) au lieu de l'ordre d'ajout de Jellyfin ; la lecture aléatoire reste aléatoire.
 - **Autre contenu** (film dans une playlist, musique…) : vue « file de lecture » classique, avec les mêmes glisser-déposer et retrait.
 - **Construire une file sans rien lancer** : dans la bibliothèque, « Ajouter à la file d'attente » / « Lire ensuite » du menu de Jellyfin fonctionnent même quand aucune lecture n'est en cours (Jellyfin les masque dans ce cas). Les éléments ( épisodes de saisons ou de séries différentes, films, saisons entières, collections ) s'empilent dans une **file en attente** ; une pastille en bas à droite l'ouvre, on y retire ce qu'on veut, puis **Lire** démarre exactement cette sélection. La file survit à la navigation et au rechargement de la page. Elle est limitée à 200 éléments : au-delà, un message le signale (« Lire ensuite » reste prioritaire et rogne la fin de la file).
+- **SyncPlay** : toutes les actions du panneau (sauter à un épisode, glisser-déposer, retirer, Lire ensuite, Ajouter à la fin) passent par le groupe et s'appliquent chez tous les participants ; le panneau se met à jour dès que le serveur confirme, y compris pour les changements faits par les autres.
 - Interface en français ou en anglais selon la langue du navigateur.
 
 ## Compatibilité
@@ -131,5 +132,7 @@ Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the
 Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
 
 Build a queue without playing anything: *Add to play queue* / *Play next* in Jellyfin's own menus now work when nothing is playing (Jellyfin hides them otherwise). Items pile up in a **pending queue** — a badge at the bottom right opens it, and *Play* starts exactly that selection.
+
+Works with **SyncPlay**: every panel action goes through the group, and the panel updates as soon as the server confirms, including changes made by other participants.
 
 **Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Jellyfin Player Queue** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.

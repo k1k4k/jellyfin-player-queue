@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.6.0
+ * Jellyfin Player Queue — v0.7.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.6.0';
+    var VERSION = '0.7.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -41,6 +41,9 @@
     var dragging = null;      // état du glisser-déposer en cours (vue file)
     var revalidate = false;   // recharger en tâche de fond la saison affichée (cache possiblement périmé)
     var suppressClickUntil = 0; // ignore le clic qui suit un glisser-déposer
+    var lastQueueSig = '';    // empreinte de la file au dernier rendu (voir queueSig)
+    var lastMode = '';        // 'series' | 'queue' : vue du dernier rendu
+    var watchTimer = null;    // surveillance rapprochée après une action SyncPlay
 
     // File en attente : ce que l'utilisateur empile depuis la bibliothèque quand rien ne joue.
     var PENDING_KEY = 'jfPlayerQueue.pending';
@@ -268,6 +271,10 @@
             '.jfQueueDragging .jfQueueDrag{cursor:grabbing}',
             '.jfQueueItem.jfQueueDragging{opacity:.9;background:rgba(0,164,220,.25);box-shadow:0 .3em 1em rgba(0,0,0,.6);position:relative;z-index:2}',
             '.jfQueueList.jfQueueDropActive .jfQueueItem{transition:transform .12s}',
+            // SyncPlay : action envoyée, en attente du serveur
+            '@keyframes jfQueueBusyPulse{0%,100%{opacity:.85}50%{opacity:.4}}',
+            '.jfQueueItem.jfQueueBusy{animation:jfQueueBusyPulse 1s ease-in-out infinite;cursor:progress}',
+            '.jfQueueItem.jfQueueBusy .jfQueueActions{pointer-events:none}',
             '.jfQueueInQueue{color:#00a4dc;opacity:.9;font-size:1.1em;flex:0 0 auto}',
             '@media (hover:hover){.jfQueueItem .jfQueueHover{opacity:0;transition:opacity .12s}.jfQueueItem:hover .jfQueueHover,.jfQueueItem:focus-within .jfQueueHover,.jfQueueItem.jfQueueMenuOpen .jfQueueHover{opacity:1}}',
             '.jfQueueMenu{position:absolute;z-index:5;min-width:14em;background:#262626;color:#fff;border-radius:.4em;',
@@ -395,7 +402,7 @@
         if (panel.__menuRow) { closeMenu(); return; }   // un clic hors du menu ne fait que le fermer
         if (e.target.closest('.jfQueueDrag') || Date.now() < suppressClickUntil) { e.stopPropagation(); return; }
         var el = e.target.closest('.jfQueueItem');
-        if (!el || !pm) return;
+        if (!el || !pm || el.classList.contains('jfQueueBusy')) return;
         if (el.classList.contains('jfQueueCurrent')) { closePanel(); return; }
         var playlistItemId = el.getAttribute('data-playlistitemid');
         var itemId = el.getAttribute('data-itemid');
@@ -666,6 +673,8 @@
             var plid = {}, qidx = {};
             (queue || []).forEach(function (q, i) { plid[q.Id] = q.PlaylistItemId; qidx[q.Id] = i; });
             var qcur = currentQueueIndex();
+            lastQueueSig = queueSig(queue);
+            lastMode = 'series';
             var currentIdx = -1;
             season.episodes.forEach(function (ep, i) { if (ep.Id === current.Id) currentIdx = i; });
             var scroll = list.scrollTop;
@@ -694,6 +703,8 @@
             var plid = {}, qidx = {};
             (queue || []).forEach(function (q, i) { plid[q.Id] = q.PlaylistItemId; qidx[q.Id] = i; });
             var qcur = currentQueueIndex();
+            lastQueueSig = queueSig(queue);
+            clearBusy();
             var rows = panel.querySelectorAll('.jfQueueItem');
             for (var i = 0; i < rows.length; i++) {
                 var row = rows[i];
@@ -727,10 +738,75 @@
 
     // renderList (vue file) conserve aussi la position de défilement
 
+    /* ---- SyncPlay ---- */
+
+    // En SyncPlay, jellyfin-web remplace les méthodes de file du playbackManager par des
+    // requêtes au serveur : la file locale ne change qu'au retour de la mise à jour du
+    // groupe (quelques centaines de ms plus tard). Son gestionnaire de file de remplacement
+    // ignore queue()/queueNext() ; on parle alors directement à l'API SyncPlay.
+    function isSyncPlay() {
+        try { return !!(pm && pm.syncPlayEnabled); } catch (e) { return false; }
+    }
+
+    function syncPlayApi() {
+        var api = window.ApiClient;
+        return api && typeof api.requestSyncPlayQueue === 'function' ? api : null;
+    }
+
+    function itemIds(items) {
+        return items.map(function (it) { return it.Id; }).filter(Boolean);
+    }
+
+    // Empreinte de la file (ordre + élément en cours) : sert à détecter qu'elle a changé
+    // sans qu'on y soit pour quelque chose (retour du serveur SyncPlay, autre participant…).
+    function queueSig(queue) {
+        var cur = '';
+        try { cur = pm.getCurrentPlaylistItemId() || ''; } catch (e) { /* ignore */ }
+        return (queue || []).map(function (q) { return q.PlaylistItemId; }).join(',') + '|' + cur;
+    }
+
+    // Si la file a changé depuis le dernier rendu, on remet l'affichage à jour.
+    function checkQueueChanged() {
+        if (!pm || !panel || panel.classList.contains('hide') || dragging) return Promise.resolve(false);
+        return Promise.resolve(pm.getPlaylist()).then(function (queue) {
+            if (queueSig(queue) === lastQueueSig) return false;
+            if (lastMode === 'series') refreshMarkers(); else refreshQueue();
+            return true;
+        }, function () { return false; });
+    }
+
+    // Après une action envoyée au serveur SyncPlay : on guette la réponse de près pendant
+    // quelques secondes. Sans réponse, on relit l'état réel (l'action a pu être refusée).
+    function watchQueueChange() {
+        clearInterval(watchTimer);
+        var until = Date.now() + 5000;
+        var stop = function () { clearInterval(watchTimer); watchTimer = null; };
+        watchTimer = setInterval(function () {
+            if (!panel || panel.classList.contains('hide')) { stop(); return; }
+            if (Date.now() > until) { stop(); clearBusy(); refresh(); return; }
+            checkQueueChanged().then(function (changed) { if (changed) stop(); });
+        }, 250);
+    }
+
+    function markBusy(row) {
+        if (row) row.classList.add('jfQueueBusy');
+    }
+
+    function clearBusy() {
+        if (!panel) return;
+        var rows = panel.querySelectorAll('.jfQueueBusy');
+        for (var i = 0; i < rows.length; i++) rows[i].classList.remove('jfQueueBusy');
+    }
+
     // Ajout d'un épisode seul à la file. L'API publique queue()/queueNext() étend un épisode
     // isolé à "lui + les 100 suivants de la série" (translateItemsForPlayback) ; pour n'ajouter
-    // que celui-là, on passe par le gestionnaire de file local quand le lecteur est local.
+    // que celui-là, on passe par le gestionnaire de file local quand le lecteur est local,
+    // et en SyncPlay par la requête serveur (qui prend la liste d'ids telle quelle).
     function enqueueSingle(item, mode) {
+        var sp = isSyncPlay() && syncPlayApi();
+        if (sp) {
+            return Promise.resolve(sp.requestSyncPlayQueue({ ItemIds: [item.Id], Mode: mode === 'next' ? 'QueueNext' : 'Queue' }));
+        }
         var player = null;
         try { player = pm.getCurrentPlayer(); } catch (e) { /* ignore */ }
         var mgr = pm._playQueueManager;
@@ -746,15 +822,19 @@
     }
 
     function onActionClick(action, row) {
-        if (!row || !pm) return;
+        if (!row || !pm || row.classList.contains('jfQueueBusy')) return;
         var plid = row.getAttribute('data-playlistitemid');
         var itemId = row.getAttribute('data-itemid');
         // La liste des épisodes n'a pas changé : on ne rafraîchit que les marqueurs de file
         // (et, en vue file, la liste elle-même puisqu'un élément a pu disparaître).
-        var done = function () {
+        // En SyncPlay, la file ne change qu'au retour du serveur : la ligne passe en attente
+        // et l'affichage suit dès que la mise à jour arrive.
+        var syncPlay = isSyncPlay();
+        var done = syncPlay ? watchQueueChange : function () {
             if (view === 'queue' || !row.classList.contains('jfQueueSeries')) refreshQueue();
             else refreshMarkers();
         };
+        if (syncPlay) markBusy(row);
         try {
             if (action === 'remove' && plid) {
                 pm.removeFromPlaylist([plid]);
@@ -774,6 +854,7 @@
             }
         } catch (err) {
             console.error(TAG, 'action ' + action + ' failed', err);
+            row.classList.remove('jfQueueBusy');
         }
     }
 
@@ -901,6 +982,10 @@
         } catch (err) {
             console.error(TAG, 'movePlaylistItem failed', err);
         }
+        // En SyncPlay, la file locale n'a pas encore bougé : redessiner maintenant
+        // remettrait la ligne à son ancienne place. On garde l'ordre déposé et on attend
+        // le serveur (qui, s'il refuse, ramène l'ordre réel).
+        if (isSyncPlay()) { markBusy(d.row); watchQueueChange(); return; }
         refresh();
     }
 
@@ -983,6 +1068,8 @@
     function refreshQueue() {
         Promise.resolve(pm.getPlaylist()).then(function (items) {
             var currentId = pm.getCurrentPlaylistItemId();
+            lastQueueSig = queueSig(items);
+            lastMode = 'queue';
             renderList(items || [], currentId);
         }).catch(function (err) {
             console.error(TAG, 'getPlaylist failed', err);
@@ -1063,13 +1150,15 @@
         view = 'auto';              // la vue "file brute" n'est pas mémorisée d'une ouverture à l'autre
         refresh();
         clearInterval(refreshTimer);
-        // rafraîchit l'état (élément courant) pendant que le panneau est ouvert
+        // rafraîchit l'état pendant que le panneau est ouvert
         refreshTimer = setInterval(function () {
             if (!panel || panel.classList.contains('hide')) { clearInterval(refreshTimer); return; }
-            // ne re-render que si l'élément courant a changé
+            // élément courant changé : nouveau rendu complet ; sinon, si seule la file a
+            // bougé (SyncPlay, autre participant…), mise à jour légère
             var cur = panel.querySelector('.jfQueueCurrent');
             var nowId = (getCurrentItem() || {}).Id || '';
             if (!cur || cur.getAttribute('data-itemid') !== nowId) refresh();
+            else checkQueueChanged();
         }, 2000);
     }
 
@@ -1079,6 +1168,8 @@
         if (dragging) onDragEnd({ type: 'pointercancel', pointerId: dragging.pointerId });
         panel.classList.add('hide');
         clearInterval(refreshTimer);
+        clearInterval(watchTimer);
+        watchTimer = null;
     }
 
     function togglePanel() {
@@ -1279,10 +1370,27 @@
         });
     }
 
+    // SyncPlay remplace pm.play à chaque activation (et remet l'ancienne à la sortie) :
+    // on enveloppe toute nouvelle valeur affectée, pour que l'ordre chronologique et le
+    // démarrage à la saison choisie s'appliquent aussi dans un groupe SyncPlay.
     function installBoxSetOrdering() {
         if (!pm || pm.__jfPlaylistPlayWrapped || typeof pm.play !== 'function') return;
-        var origPlay = pm.play;
-        pm.play = function (options) {
+        var play = wrapPlay(pm.play);
+        try {
+            Object.defineProperty(pm, 'play', {
+                configurable: true,
+                enumerable: true,
+                get: function () { return play; },
+                set: function (fn) { play = (typeof fn === 'function' && !fn.__jfPlayWrapper) ? wrapPlay(fn) : fn; }
+            });
+        } catch (e) {
+            pm.play = play;   // propriété non redéfinissable : au moins hors SyncPlay
+        }
+        pm.__jfPlaylistPlayWrapped = true;
+    }
+
+    function wrapPlay(origPlay) {
+        var wrapper = function (options) {
             var self = this;
             var args = arguments;
 
@@ -1329,7 +1437,8 @@
                 return origPlay.apply(self, args);
             });
         };
-        pm.__jfPlaylistPlayWrapped = true;
+        wrapper.__jfPlayWrapper = true;
+        return wrapper;
     }
 
     /* ------------------------------------------------------------------ */
@@ -1488,6 +1597,23 @@
     function startPending(append) {
         var items = pending.slice();
         if (!items.length || !pm) return;
+        // SyncPlay : la requête serveur prend la liste d'ids telle quelle (pas d'extension
+        // d'un épisode isolé), et la file locale n'est à jour qu'au retour du serveur — on
+        // ne peut donc pas la relire tout de suite pour la retailler.
+        var sp = isSyncPlay() && syncPlayApi();
+        if (sp) {
+            var ids = itemIds(items);
+            var req = append
+                ? sp.requestSyncPlayQueue({ ItemIds: ids, Mode: 'Queue' })
+                : sp.requestSyncPlaySetNewQueue({ PlayingQueue: ids, PlayingItemPosition: 0, StartPositionTicks: 0 });
+            Promise.resolve(req).then(function () {
+                clearPending();
+                closePendingPanel();
+            }, function (err) {
+                console.error(TAG, 'lecture de la file en attente impossible (SyncPlay)', err);
+            });
+            return;
+        }
         if (append) {
             try { pm.queue({ items: items }); } catch (e) { console.error(TAG, 'append failed', e); }
             clearPending();
