@@ -10,7 +10,7 @@
     "versions": [
       {
         "version": "0.7.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.7.0",
+        "changelog": "- Works with SyncPlay: everything you do in the panel applies to the whole group.\n- The panel updates by itself when someone else changes the queue.\n- \"Play next\" and \"Add to end of queue\" now work during a SyncPlay session.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.7.0/jellyfin-player-queue_0.7.0.0_jf12.zip",
         "checksum": "d3e9661de71384abc47d91266fbb24a0",
@@ -18,7 +18,7 @@
       },
       {
         "version": "0.6.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.6.0",
+        "changelog": "- The panel opens instantly, even for series with many seasons.\n- The list no longer reloads or jumps after you add, move or remove an episode.\n- Adding a big selection to the pending queue stops as soon as it's full, instead of making you wait.\n- \"Play all from here\" on a season now really starts at that season.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.6.0/jellyfin-player-queue_0.6.0.0_jf12.zip",
         "checksum": "1f4f38074257b838e57524eefbd7b902",
@@ -26,7 +26,7 @@
       },
       {
         "version": "0.5.1.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.5.1",
+        "changelog": "- A message now tells you when the pending queue is full (200 items).\n- \"Play next\" always works, even when the pending queue is full.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.5.1/jellyfin-player-queue_0.5.1.0_jf12.zip",
         "checksum": "8d103ecc8cb947f86e4ce42e02e1f411",
@@ -34,7 +34,7 @@
       },
       {
         "version": "0.5.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.5.0",
+        "changelog": "- Build a queue without playing anything: \"Add to play queue\" and \"Play next\" now work from the library when nothing is playing.\n- Episodes, movies, seasons, whole series and collections pile up in a pending queue: review it, remove what you don't want, then play.\n- Movies show proper artwork in the list.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.5.0/jellyfin-player-queue_0.5.0.0_jf12.zip",
         "checksum": "60301cc7962e6f4bfe2ee88f73d518b7",
@@ -42,7 +42,7 @@
       },
       {
         "version": "0.4.1.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.4.1",
+        "changelog": "- One \"⋮\" menu per episode (Play next, Add to end of queue, Remove) instead of several buttons.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.4.1/jellyfin-player-queue_0.4.1.0_jf12.zip",
         "checksum": "f35fe81e043895949c17eafaae299322",
@@ -50,7 +50,7 @@
       },
       {
         "version": "0.4.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.4.0",
+        "changelog": "- Reorder the queue by drag and drop.\n- Remove items from the queue.\n- \"Play next\" and \"Add to end of queue\" on any episode of the season.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.4.0/jellyfin-player-queue_0.4.0.0_jf12.zip",
         "checksum": "e9003c59d89c75bfca2e44813a56573f",
@@ -58,7 +58,7 @@
       },
       {
         "version": "0.3.2.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.3.2",
+        "changelog": "- New name: Jellyfin Player Queue.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.3.2/jellyfin-player-queue_0.3.2.0_jf12.zip",
         "checksum": "4e607bd4da1bcfba887866fce25abf93",
@@ -66,7 +66,7 @@
       },
       {
         "version": "0.3.1.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.3.1",
+        "changelog": "- Collections now play in release order instead of the order they were added to the library.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.3.1/jellyfin-playlist_0.3.1.0_jf12.zip",
         "checksum": "0be1da3b322bb82cd83cba17277faa5a",
@@ -74,7 +74,7 @@
       },
       {
         "version": "0.3.0.0",
-        "changelog": "https://github.com/k1k4k/jellyfin-player-queue/releases/tag/v0.3.0",
+        "changelog": "- First release as a Jellyfin plugin.\n- Series view: the current season with previous episodes, and buttons to switch seasons.\n- Click any episode to play it; playback continues into the following seasons.",
         "targetAbi": "12.0.0.0",
         "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.3.0/jellyfin-playlist_0.3.0.0_jf12.zip",
         "checksum": "673e130a102ef021ccb9b5c6ee6ea73f",

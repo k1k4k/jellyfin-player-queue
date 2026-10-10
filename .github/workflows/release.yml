@@ -3,7 +3,8 @@ name: Release
 # Pousser un tag vX.Y.Z (la version doit correspondre à <AssemblyVersion> du csproj) :
 #   git tag v0.3.0 && git push origin v0.3.0
 # -> build jf12 + jf10, zips attachés à la release GitHub, manifest.json / manifest-10.11.json
-#    mis à jour et committés sur main.
+#    mis à jour et committés sur main. Les notes de la version (release + catalogue Jellyfin)
+#    sont prises dans CHANGELOG.md : sans section "## X.Y.Z", la publication échoue.
 
 on:
   push:
@@ -42,7 +43,7 @@ jobs:
 
       - name: Package + update manifests
         run: |
-          python3 scripts/package.py --target jf12 --dll out/jf12/Jellyfin.Plugin.QueueOsd.dll --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME"
+          python3 scripts/package.py --target jf12 --dll out/jf12/Jellyfin.Plugin.QueueOsd.dll --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME" --notes-out dist/release-notes.md
           python3 scripts/package.py --target jf10 --dll out/jf10/Jellyfin.Plugin.QueueOsd.dll --repo "$GITHUB_REPOSITORY" --tag "$GITHUB_REF_NAME"
           ls -la dist
 
@@ -50,7 +51,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: dist/*.zip
-          generate_release_notes: true
+          body_path: dist/release-notes.md
 
       - name: Commit manifests
         run: |
