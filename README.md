@@ -1,138 +1,171 @@
-# Jellyfin Player Queue
+<p align="center">
+  <img src="icon.png" width="520" alt="Jellyfin Player Queue">
+</p>
 
-Une icône **file de lecture** dans le lecteur vidéo web de Jellyfin : pour une série, la saison en cours avec navigation entre saisons « à la Netflix » ; sinon la file de lecture. Un clic lance l'épisode voulu sans quitter le lecteur.
+<p align="center">
+  <a href="https://github.com/k1k4k/jellyfin-player-queue/releases/latest"><img src="https://img.shields.io/github/v/release/k1k4k/jellyfin-player-queue?label=version&color=00a4dc" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/Jellyfin-12.x%20%7C%2010.11-00a4dc?logo=jellyfin&logoColor=white" alt="Jellyfin 12.x | 10.11">
+  <a href="https://github.com/k1k4k/jellyfin-player-queue/releases"><img src="https://img.shields.io/github/downloads/k1k4k/jellyfin-player-queue/total?color=aa5cc3" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/k1k4k/jellyfin-player-queue?color=555" alt="MIT license"></a>
+</p>
 
-*A "play queue" button for the Jellyfin web video player: for a series, the current season with Netflix-style season navigation; otherwise the play queue. Click any item to play it without leaving the player. English summary at the bottom.*
+<p align="center">
+  <b>The play queue the Jellyfin web player was missing.</b><br>
+  See what's next, switch seasons, reorder, add, remove, without leaving the video.
+</p>
 
-<p align="center"><img src="docs/screenshot.png" width="420" alt="Le panneau dans le lecteur : saison en cours, épisode en lecture surligné, épisodes suivants dans la file"></p>
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="README.fr.md">Version française</a>
+</p>
 
-## Ce que ça fait
+<p align="center"><img src="docs/screenshot.png" width="400" alt="The panel in the player: current season, playing episode highlighted, upcoming episodes in the queue"></p>
 
-- Ajoute un bouton <img src="docs/playlist_play.svg" width="22" height="22" alt="playlist_play" align="absmiddle"> à côté de la roue crantée dans le lecteur vidéo (raccourci clavier : `Q`).
-- **Série** (quel que soit le point de départ : série, saison, épisode, « Lire à partir d'ici ») : le panneau affiche la **saison en cours**, épisodes précédents compris, avec `◀ Saison N ▶` et une liste déroulante pour changer de saison. L'épisode en cours est surligné, coche « vu », barre de progression, vignettes.
-- Un clic sur un épisode → lecture immédiate. Si l'épisode est déjà dans la file (les suivants), la file est conservée ; sinon (épisode précédent, autre saison) une nouvelle file « à partir d'ici » est construite jusqu'à la fin de la série, **toutes saisons confondues** : la lecture enchaîne bien sur la saison suivante. Le réglage Jellyfin « Lire automatiquement l'épisode suivant » reste respecté.
-- Le panneau suit la lecture : quand on passe à la saison suivante, il l'affiche. Il s'ouvre immédiatement (seule la saison en cours est chargée, le reste arrive en tâche de fond) et garde sa position quand on agit sur la file.
-- **« Tout lire à partir d'ici » sur une saison** démarre bien à cette saison : Jellyfin repart sinon du début de la série.
-- Menu `⋮` sur chaque épisode : **Lire ensuite** (inséré juste après l'épisode en cours), **Ajouter à la fin de la file**, **Retirer de la file** ; une coche bleue signale les épisodes déjà dans la file à venir.
-- **Vue file** (bouton dans l'en-tête) : **réordonner par glisser-déposer** avec la poignée ⋮⋮ (souris ou doigt ; jamais avant l'épisode en cours).
-- **Collections** : lancées dans l'**ordre chronologique** (date de sortie, sinon année, sinon nom) au lieu de l'ordre d'ajout de Jellyfin ; la lecture aléatoire reste aléatoire.
-- **Autre contenu** (film dans une playlist, musique…) : vue « file de lecture » classique, avec les mêmes glisser-déposer et retrait.
-- **Construire une file sans rien lancer** : dans la bibliothèque, « Ajouter à la file d'attente » / « Lire ensuite » du menu de Jellyfin fonctionnent même quand aucune lecture n'est en cours (Jellyfin les masque dans ce cas). Les éléments ( épisodes de saisons ou de séries différentes, films, saisons entières, collections ) s'empilent dans une **file en attente** ; une pastille en bas à droite l'ouvre, on y retire ce qu'on veut, puis **Lire** démarre exactement cette sélection. La file survit à la navigation et au rechargement de la page. Elle est limitée à 200 éléments : au-delà, un message le signale (« Lire ensuite » reste prioritaire et rogne la fin de la file).
-- **SyncPlay** : toutes les actions du panneau (sauter à un épisode, glisser-déposer, retirer, Lire ensuite, Ajouter à la fin) passent par le groupe et s'appliquent chez tous les participants ; le panneau se met à jour dès que le serveur confirme, y compris pour les changements faits par les autres.
-- Interface en français ou en anglais selon la langue du navigateur.
+## Features
 
-## Compatibilité
+### In the player
 
-- Développé et testé sur **Jellyfin 12.1.0** (jellyfin-web 12.x).
-- Devrait fonctionner sur 10.10 / 10.11 (même architecture du lecteur), non testé.
-- Le script ne modifie pas le bundle Jellyfin : il retrouve le `playbackManager` interne via le runtime webpack en cherchant le module par son contenu, donc il n'est pas lié aux identifiants d'un build précis.
-- Navigateurs de bureau et mobile. Pas de navigation clavier/télécommande dans le panneau pour l'instant (layout TV).
+A <img src="docs/playlist_play.svg" width="20" height="20" alt="" align="absmiddle"> button next to the settings gear (shortcut `Q`) opens the panel.
+
+- **Netflix-style series view**: the current season, previous episodes included, with `◀ Season N ▶` to switch seasons. The playing episode is highlighted; thumbnails, watched marks and progress just like in the library.
+- **Click to play**: an episode already in the queue is played without touching the queue; any other one (previous episode, other season) restarts playback from there to the end of the series.
+- **`⋮` menu** on every episode: *Play next*, *Add to end of queue*, *Remove*. A blue check marks what's already coming up.
+- **Queue view**: reorder by drag & drop, with a mouse or a finger.
+
+### In the library
+
+- **Pending queue**: *Add to play queue* and *Play next* work even when nothing is playing. Episodes, movies, seasons, series and collections pile up; a badge at the bottom right opens the list, and **Play** starts exactly that selection (200 items max).
+- **Collections in chronological order** instead of the order they were added to the library.
+- **"Play all from here" on a season** really starts at that season (Jellyfin otherwise restarts from the first episode of the series).
+
+### Everywhere
+
+- **SyncPlay**: every action goes through the group, and the panel follows changes made by other participants.
+- Honors Jellyfin's "Play next episode automatically" setting.
+- English or French, following the browser language.
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screen-menu.png" width="240" alt="⋮ menu: Play next, Add to end of queue, Remove"><br><sub><code>⋮</code> menu</sub></td>
+    <td align="center" valign="top"><img src="docs/screen-queue.png" width="240" alt="Queue view with drag and drop"><br><sub>Queue view, drag &amp; drop</sub></td>
+    <td align="center" valign="top"><img src="docs/screen-pending.png" width="240" alt="Pending queue in the library"><br><sub>Pending queue</sub></td>
+  </tr>
+</table>
 
 ## Installation
 
-Quatre méthodes, de la plus simple à la plus manuelle. Dans tous les cas, rechargez la page Jellyfin avec `Ctrl+F5` après l'installation.
+### Plugin (recommended)
 
-### 1. Plugin Jellyfin Player Queue (recommandé)
+1. **Dashboard → Plugins → Manage Repositories → `+`**, then the URL matching your Jellyfin:
 
-Un vrai plugin Jellyfin : le script est embarqué dans le plugin, servi par le serveur et injecté dans `index.html` **à la volée** (aucune écriture sur le disque, rien à refaire après une mise à jour de Jellyfin, pas de problème de permissions Docker). Mises à jour via le tableau de bord.
+   | Jellyfin | Repository URL |
+   |---|---|
+   | 12.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` |
+   | 10.11.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest-10.11.json` |
 
-1. Tableau de bord → Plugins → Dépôts → « + » et ajoutez l'URL correspondant à votre version de Jellyfin :
-   - **Jellyfin 12.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json`
-   - **Jellyfin 10.11.x** : `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest-10.11.json`
-2. Catalogue → **Jellyfin Player Queue** → Installer, puis redémarrez Jellyfin.
-3. `Ctrl+F5` dans le navigateur. La page de configuration du plugin (Tableau de bord → Plugins → Jellyfin Player Queue) permet de désactiver le bouton sans désinstaller.
+2. **Plugins → Available → Jellyfin Player Queue → Install**, then restart Jellyfin.
+3. `Ctrl+F5` in the browser.
 
-Installation manuelle du plugin : téléchargez le zip de la [dernière release](https://github.com/k1k4k/jellyfin-player-queue/releases) (`_jf12` pour Jellyfin 12, `_jf10` pour 10.11), dézippez-le dans `<config>/plugins/QueueOsd/` et redémarrez.
+The plugin injects the script each time the page loads: no Jellyfin file is modified, and nothing needs redoing after a Jellyfin update, Docker included. New versions show up in the dashboard. The plugin settings page can turn the button off without uninstalling.
 
-### 2. Plugin « JavaScript Injector »
+<details>
+<summary><b>Other methods (without the repository, or without a plugin)</b></summary>
 
-1. Dans Jellyfin → Tableau de bord → Plugins → Dépôts, ajoutez le dépôt de [Jellyfin-JavaScript-Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) (voir leur README : il y a une URL de manifeste spécifique pour Jellyfin 12).
-2. Installez le plugin **JavaScript Injector** (et idéalement [File Transformation](https://github.com/IAmParadox27/jellyfin-plugin-file-transformation), que l'injecteur utilise pour ne pas toucher à `index.html`). Redémarrez Jellyfin.
-3. Dans la configuration du plugin, ajoutez un script, collez le contenu complet de [`jellyfin-queue-osd.js`](jellyfin-queue-osd.js), enregistrez.
+#### Plugin, by hand
 
-### 3. Script d'installation (Windows / Linux / Docker)
+Download the zip from the [latest release](https://github.com/k1k4k/jellyfin-player-queue/releases/latest) (`_jf12` for Jellyfin 12, `_jf10` for 10.11), unzip it into `<config>/plugins/QueueOsd/` and restart Jellyfin.
 
-Copie le `.js` dans le dossier web de Jellyfin et ajoute une balise `<script>` dans `index.html` (sauvegarde `index.html.queueosd.bak` créée la première fois). Relancer le script après une mise à jour de Jellyfin, qui écrase `index.html`.
+#### JavaScript Injector
 
-Si `index.html` n'est pas réinscriptible mais que le dossier l'est (cas typique : Jellyfin sous Linux, dossier web exposé en partage Samba, `index.html` appartenant à root), `install.ps1` met l'original de côté en `index.html.queueosd.orig` et en crée un nouveau ; `-Uninstall` le restaure.
+If you already use [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector): add a script and paste the contents of [`jellyfin-queue-osd.js`](jellyfin-queue-osd.js).
 
-**Windows (PowerShell)**
+#### Install script
+
+Copies the `.js` into Jellyfin's web folder and adds a `<script>` tag to `index.html` (a backup is made the first time).
+
+> [!WARNING]
+> A Jellyfin update replaces `index.html`: run the script again. **With Docker, every image update wipes the install**: use the plugin instead.
 
 ```powershell
-.\install.ps1
-# ou en précisant le dossier (chemin local ou partage réseau) :
-.\install.ps1 -WebDir "C:\Program Files\Jellyfin\Server\jellyfin-web"
-# désinstaller :
+# Windows
+.\install.ps1                                   # auto-detect
+.\install.ps1 -WebDir "\\SERVER\jellyfin\web"   # local folder or network share
 .\install.ps1 -Uninstall
 ```
 
-**Linux / Docker**
-
 ```bash
-sudo ./install.sh                         # détection auto (/usr/share/jellyfin/web, …)
+# Linux
+sudo ./install.sh                               # auto-detect
 sudo ./install.sh /usr/share/jellyfin/web
-docker cp jellyfin-queue-osd.js jellyfin:/jellyfin/jellyfin-web/   # image officielle
-docker exec jellyfin sh -c 'cd /jellyfin/jellyfin-web && sed -i "s#</head>#<script defer src=\"jellyfin-queue-osd.js\"></script></head>#" index.html'
 ```
 
-### 4. À la main
+If `index.html` is read-only but its folder is writable (web folder shared over Samba, file owned by root), `install.ps1` moves the original aside as `index.html.queueosd.orig`; `-Uninstall` restores it.
 
-1. Copiez `jellyfin-queue-osd.js` dans le dossier web de Jellyfin (celui qui contient `index.html`).
-2. Dans `index.html`, juste avant `</head>`, ajoutez :
-   ```html
-   <script defer="defer" src="jellyfin-queue-osd.js"></script>
-   ```
+#### By hand
 
-## Utilisation
+Copy `jellyfin-queue-osd.js` next to `index.html` in the web folder, and add right before `</head>`:
 
-Lancez une saison, une playlist, ou « Lire à partir d'ici » sur un épisode. Dans le lecteur, cliquez sur l'icône de file de lecture (ou appuyez sur `Q`). Cliquez sur un épisode pour le lire. `Échap`, un clic à côté ou l'icône referment le panneau.
+```html
+<script defer="defer" src="jellyfin-queue-osd.js"></script>
+```
 
-## Dépannage
+</details>
 
-- **Pas d'icône dans le lecteur** : ouvrez la console du navigateur (F12). Vous devez voir `[PlayerQueue] v… – playbackManager found`. Si vous voyez `playbackManager not found`, la version de jellyfin-web n'est pas reconnue — ouvrez une issue avec votre version.
-- **Le script n'est pas chargé du tout** (rien dans la console) : vérifiez que `index.html` contient bien la balise, et videz le cache (`Ctrl+F5`). Après une mise à jour de Jellyfin, relancez l'installation.
-- **« Aucun élément dans la file »** : vous avez lancé un film seul (pas de série, pas de playlist).
-- **Pas de saisons, juste la file** : la console affiche `[PlayerQueue] refresh {...}` avec `mode: "queue"` — l'élément en cours n'est pas reconnu comme épisode d'une série ; ouvrez une issue avec cette ligne.
+## Compatibility
 
-## Développement
+| | |
+|---|---|
+| **Jellyfin 12.x** | tested (12.1.0) |
+| **Jellyfin 10.11** | plugin built, untested |
+| **Browser** (desktop, mobile) | yes |
+| **Apps that show the web UI** (Jellyfin Media Player, Android app) | should work, untested |
+| **Native apps** (Android TV, Swiftfin, Findroid…) | no: they don't use the web player |
+| **Remote control / TV mode** | not yet |
 
-### Script client
+The script doesn't patch Jellyfin: it finds the internal player by its content, so it isn't tied to a specific build.
 
-`web-dev/` (non versionné) est une copie du build jellyfin-web servie en local avec `config.json` pointant vers un vrai serveur Jellyfin : le client local parle à l'API distante, le serveur n'est pas modifié.
+## Coming next
+
+- **More languages**: today the interface is in English and French. More translations are planned, and you'll be able to add your own language file without waiting for a new release.
+- **Settings**: server-wide options for the admin (defaults, limits, what users may change) and personal options for each user (panel behavior, display), right from Jellyfin.
+
+Ideas and requests are welcome in the [issues](https://github.com/k1k4k/jellyfin-player-queue/issues).
+
+## Troubleshooting
+
+- **No button in the player**: open the browser console (`F12`). You should see `[PlayerQueue] v… – playbackManager found`. If it says `playbackManager not found`, your Jellyfin version isn't recognized: [open an issue](https://github.com/k1k4k/jellyfin-player-queue/issues) and mention it.
+- **Nothing in the console**: the script isn't loaded. Clear the cache (`Ctrl+F5`). With the install script, check the tag in `index.html` and run the install again after each Jellyfin update.
+- **"Nothing in the queue"**: a single movie was started, there's nothing after it.
+- **The queue shows instead of the seasons**: the console shows `[PlayerQueue] refresh {…}` with `mode: "queue"`. Open an issue with that line.
+
+<details>
+<summary><b>Development</b></summary>
+
+#### Client script
+
+`web-dev/` (not versioned) is a copy of jellyfin-web served locally, with `config.json` pointing at a real server: the script is tested without touching the server.
 
 ```powershell
 python -m http.server 8098 --directory web-dev --bind 127.0.0.1
 ```
 
-### Plugin
+#### Plugin
 
-`Jellyfin.Plugin.QueueOsd/` — .NET, une même source pour deux cibles : `-p:JellyfinTarget=jf12` (Jellyfin 12, .NET 10, défaut) et `jf10` (Jellyfin 10.11, .NET 9). Le fichier `jellyfin-queue-osd.js` à la racine est embarqué tel quel. Sans SDK local, via Docker :
+`Jellyfin.Plugin.QueueOsd/`: one source, two targets, `-p:JellyfinTarget=jf12` (Jellyfin 12, .NET 10, default) and `jf10` (Jellyfin 10.11, .NET 9). `jellyfin-queue-osd.js` is embedded as is. Without a local SDK:
 
 ```bash
 docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet build Jellyfin.Plugin.QueueOsd/Jellyfin.Plugin.QueueOsd.csproj -c Release -o out/jf12
 ```
 
-Pour tester : copier `out/jf12/Jellyfin.Plugin.QueueOsd.dll` dans `<config>/plugins/QueueOsd_x/` d'un Jellyfin 12 jetable (`docker run -p 8097:8096 -v ./test-jellyfin/config:/config jellyfin/jellyfin:12.1`), puis `curl localhost:8097/web/index.html | grep queue-osd`.
+#### Releasing
 
-### Publier une version
+1. Bump `VERSION` in `jellyfin-queue-osd.js` and `<Version>` / `<AssemblyVersion>` in the csproj.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`: the **Release** workflow builds both targets, publishes the release and updates the manifests on `main`.
 
-1. Mettre à jour `VERSION` dans `jellyfin-queue-osd.js` et `<Version>`/`<AssemblyVersion>` dans le csproj.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z` — le workflow **Release** compile les deux cibles, publie la release GitHub avec les zips, et met à jour `manifest.json` / `manifest-10.11.json` sur `main` (les serveurs qui ont le dépôt voient la mise à jour).
+</details>
 
-## Licence
+## License
 
-MIT — voir [LICENSE](LICENSE).
-
----
-
-## English
-
-Adds a **play queue** button (`Q`) to the Jellyfin web video player, next to the settings gear. Reorder the queue by drag & drop, remove items, and use *Play next* / *Add to queue* on any episode. For a series it shows the **current season** (previous episodes included) with `◀ Season N ▶` navigation and a season dropdown; clicking an episode plays it right away. Episodes already in the queue are jumped to in place; others (previous episodes, other seasons) start a new "play from here" queue up to the end of the series, across seasons, so playback continues into the next season. For non-series content it lists the play queue.
-
-Built and tested on Jellyfin **12.1.0**; should work on 10.10+/10.11 (untested). It does not patch the Jellyfin bundle — it locates the internal `playbackManager` through the webpack runtime by module content, so it is not tied to a specific build's module ids.
-
-Build a queue without playing anything: *Add to play queue* / *Play next* in Jellyfin's own menus now work when nothing is playing (Jellyfin hides them otherwise). Items pile up in a **pending queue** — a badge at the bottom right opens it, and *Play* starts exactly that selection.
-
-Works with **SyncPlay**: every panel action goes through the group, and the panel updates as soon as the server confirms, including changes made by other participants.
-
-**Install (plugin, recommended)**: Dashboard → Plugins → Repositories → add `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` (Jellyfin 12) or `.../manifest-10.11.json` (Jellyfin 10.11), install **Jellyfin Player Queue** from the catalog, restart Jellyfin, `Ctrl+F5`. The plugin injects the script into `index.html` at request time (no disk writes, survives Jellyfin updates). Alternatives: paste `jellyfin-queue-osd.js` into the [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, run `install.ps1` / `install.sh`, or add the `<script>` tag by hand.
+MIT, see [LICENSE](LICENSE).
