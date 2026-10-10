@@ -145,11 +145,20 @@ Idées et demandes bienvenues dans les [issues](https://github.com/k1k4k/jellyfi
 
 #### Script client
 
-`web-dev/` (non versionné) est une copie de jellyfin-web servie en local, dont `config.json` pointe vers un vrai serveur : on teste le script sans toucher au serveur.
+Le script se teste sur un banc d'essai local, `web-dev/` : une copie de l'interface web de Jellyfin servie depuis votre machine, qui parle à un vrai serveur Jellyfin. Le serveur lui-même n'est jamais modifié. Ce dossier n'est pas dans le dépôt (c'est le code de Jellyfin, et sa configuration contient l'adresse de votre serveur) ; on le crée une fois :
 
-```powershell
-python -m http.server 8098 --directory web-dev --bind 127.0.0.1
-```
+1. Copiez le dossier web de Jellyfin (celui qui contient `index.html`) dans `web-dev/`. Il se trouve dans `C:\Program Files\Jellyfin\Server\jellyfin-web` sous Windows, `/usr/share/jellyfin/web` sous Linux, `/jellyfin/jellyfin-web` dans l'image Docker officielle. Prenez la même version de Jellyfin que votre serveur.
+2. Dans `web-dev/config.json`, mettez `"multiserver": true` et l'adresse de votre serveur dans `"servers"`, par exemple `["http://192.168.1.10:8096"]`.
+3. Copiez `jellyfin-queue-osd.js` dans `web-dev/`, et dans `web-dev/index.html` ajoutez juste avant `</head>` :
+   ```html
+   <script defer="defer" src="jellyfin-queue-osd.js"></script>
+   ```
+4. Servez le dossier, puis ouvrez `http://localhost:8098` et connectez-vous :
+   ```powershell
+   python -m http.server 8098 --directory web-dev --bind 127.0.0.1
+   ```
+
+Après chaque modification du script, recopiez-le dans `web-dev/` et rechargez avec `Ctrl+F5`.
 
 #### Plugin
 
