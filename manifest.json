@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/icon.png",
     "versions": [
       {
+        "version": "0.8.0.0",
+        "changelog": "- Works with Jellyfin Background Play: when the video keeps playing in the mini player bar, the queue button is there too, with the panel right above the bar (shortcut `Q` as well).\n- Picking an episode from that panel switches to it without reopening the player.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.8.0/jellyfin-player-queue_0.8.0.0_jf12.zip",
+        "checksum": "f30a6f139ae9da23089072faaf43ebfc",
+        "timestamp": "2026-10-11T15:03:30Z"
+      },
+      {
         "version": "0.7.0.0",
         "changelog": "- Works with SyncPlay: everything you do in the panel applies to the whole group.\n- The panel updates by itself when someone else changes the queue.\n- \"Play next\" and \"Add to end of queue\" now work during a SyncPlay session.",
         "targetAbi": "12.0.0.0",
