@@ -1,5 +1,24 @@
 [
   {
+    "guid": "03de372b-6a0e-4c93-a525-05e094642af6",
+    "name": "Jellyfin Background Play",
+    "description": "Quitter le lecteur vidéo web ne coupe plus la vidéo : elle continue en fond avec une mini barre de lecture, comme la musique. Leaving the web video player no longer stops the video: it keeps playing with a mini player bar, just like music.",
+    "overview": "La vidéo continue en fond quand on quitte le lecteur. Keep videos playing when leaving the player.",
+    "owner": "k1k4k",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-background-play/main/icon.png",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "- Leaving the video player (back arrow, browser back) no longer stops the video: it keeps playing in the background.\n- The same mini player bar as for music shows up at the bottom: play/pause, stop, previous/next episode, seek, volume. Click it to get back to the player.\n- The next episode starts in the background without bringing the player back.\n- New Stop button next to pause in the player, and a close cross at its top right, to stop the video and leave.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-background-play/releases/download/v0.1.0/jellyfin-background-play_0.1.0.0_jf12.zip",
+        "checksum": "826dbd961cf4ee4b9296d53e638c3e5d",
+        "timestamp": "2026-10-11T15:00:38Z"
+      }
+    ]
+  },
+  {
     "guid": "ae203062-4b00-4c07-a7f6-83e69982d951",
     "name": "Jellyfin Player Queue",
     "description": "Bouton file de lecture dans le lecteur vidéo web : saison en cours, navigation entre saisons, lecture directe d'un épisode. Play queue button in the web video player: current season, season navigation, click-to-play.",
