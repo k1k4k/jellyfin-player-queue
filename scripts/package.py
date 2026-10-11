@@ -7,7 +7,9 @@
 
 - crée dist/jellyfin-player-queue_<version>_<target>.zip (la DLL à la racine du zip)
 - calcule le MD5 attendu par Jellyfin
-- ajoute/remplace l'entrée de version dans manifest.json (jf12) ou manifest-10.11.json (jf10)
+- ajoute/remplace l'entrée de version dans manifest.json (jf12) ou manifest-10.11.json (jf10) ;
+  les manifestes listent aussi les autres plugins k1k4k (voir merge_manifests.py), seule
+  l'entrée de ce plugin (même GUID) est touchée
 Le sourceUrl pointe vers l'asset de la release GitHub du tag.
 
 Les notes de version viennent de CHANGELOG.md (une section "## X.Y.Z" par version, écrite
@@ -63,6 +65,14 @@ def changelog_for(changelog, version):
     return changelog.get(version) or changelog.get(short)
 
 
+def plugin_entry(manifest):
+    """Entrée de ce plugin dans un manifeste (qui liste aussi les autres plugins k1k4k), par GUID."""
+    for p in manifest:
+        if p.get("guid") == GUID:
+            return p
+    return None
+
+
 def write_manifest(path, manifest):
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
@@ -76,7 +86,10 @@ def refresh_changelogs(root, changelog):
         if not os.path.exists(path):
             continue
         manifest = json.load(open(path, encoding="utf-8"))
-        for v in manifest[0]["versions"]:
+        plugin = plugin_entry(manifest)
+        if plugin is None:
+            continue
+        for v in plugin["versions"]:
             text = changelog_for(changelog, v["version"])
             if text:
                 v["changelog"] = text
@@ -123,10 +136,10 @@ def main():
     md5 = hashlib.md5(open(zip_path, "rb").read()).hexdigest()  # noqa: S324 - format imposé par Jellyfin
 
     manifest_path = os.path.join(root, t["manifest"])
-    if os.path.exists(manifest_path):
-        manifest = json.load(open(manifest_path, encoding="utf-8"))
-    else:
-        manifest = [{
+    manifest = json.load(open(manifest_path, encoding="utf-8")) if os.path.exists(manifest_path) else []
+    plugin = plugin_entry(manifest)
+    if plugin is None:
+        plugin = {
             "guid": GUID,
             "name": NAME,
             "description": "Bouton file de lecture dans le lecteur vidéo web : saison en cours, navigation entre saisons, lecture directe d'un épisode. "
@@ -136,7 +149,8 @@ def main():
             "category": "General",
             "imageUrl": f"https://raw.githubusercontent.com/{args.repo}/main/icon.png",
             "versions": [],
-        }]
+        }
+        manifest.append(plugin)
 
     entry = {
         "version": version,
@@ -146,10 +160,10 @@ def main():
         "checksum": md5,
         "timestamp": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    versions = [v for v in manifest[0]["versions"] if v["version"] != version]
+    versions = [v for v in plugin["versions"] if v["version"] != version]
     versions.insert(0, entry)
     versions.sort(key=lambda v: tuple(int(x) for x in v["version"].split(".")), reverse=True)
-    manifest[0]["versions"] = versions
+    plugin["versions"] = versions
     write_manifest(manifest_path, manifest)
 
     print(f"{zip_path}  md5={md5}  -> {t['manifest']} (targetAbi {t['targetAbi']})")

@@ -58,12 +58,14 @@ A <img src="docs/playlist_play.svg" width="20" height="20" alt="" align="absmidd
 
 ### Plugin (recommended)
 
-1. **Dashboard → Plugins → Manage Repositories → `+`**, then the URL matching your Jellyfin:
+1. **Dashboard → Plugins → Manage Repositories → `+`**, then the k1k4k plugin repository URL matching your Jellyfin:
 
    | Jellyfin | Repository URL |
    |---|---|
-   | 12.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` |
-   | 10.11.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest-10.11.json` |
+   | 12.x | `https://k1k4k.github.io/jellyfin-plugins/manifest.json` |
+   | 10.11.x | `https://k1k4k.github.io/jellyfin-plugins/manifest-10.11.json` |
+
+   This repository lists every k1k4k plugin ([Background Play](https://github.com/k1k4k/jellyfin-background-play), Player Queue…). Already added the former `jellyfin-player-queue/main/manifest….json` URL? It keeps working and lists the other plugins too.
 
 2. **Plugins → Available → Jellyfin Player Queue → Install**, then restart Jellyfin.
 3. `Ctrl+F5` in the browser.
@@ -171,7 +173,8 @@ docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet 
 #### Releasing
 
 1. Bump `VERSION` in `jellyfin-queue-osd.js` and `<Version>` / `<AssemblyVersion>` in the csproj.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z`: the **Release** workflow builds both targets, publishes the release and updates the manifests on `main`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z`: the **Release** workflow builds both targets, publishes the release and updates the manifests on `main`. The central [`jellyfin-plugins`](https://github.com/k1k4k/jellyfin-plugins) repository picks them up on its next run (hourly, or right away with the `PLUGINS_REPO_TOKEN` secret).
+3. The **Sync manifests** workflow (hourly) copies the other k1k4k plugins from the central repository into this repository's manifests, so the former URL keeps listing them.
 
 </details>
 

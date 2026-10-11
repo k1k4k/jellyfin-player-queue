@@ -58,12 +58,14 @@ Un bouton <img src="docs/playlist_play.svg" width="20" height="20" alt="" align=
 
 ### Plugin (recommandé)
 
-1. **Tableau de bord → Extensions → Gérer les dépôts → `+`**, puis l'adresse qui correspond à votre Jellyfin :
+1. **Tableau de bord → Extensions → Gérer les dépôts → `+`**, puis l'adresse du dépôt de plugins k1k4k qui correspond à votre Jellyfin :
 
    | Jellyfin | Adresse du dépôt |
    |---|---|
-   | 12.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest.json` |
-   | 10.11.x | `https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/manifest-10.11.json` |
+   | 12.x | `https://k1k4k.github.io/jellyfin-plugins/manifest.json` |
+   | 10.11.x | `https://k1k4k.github.io/jellyfin-plugins/manifest-10.11.json` |
+
+   Ce dépôt liste tous les plugins k1k4k ([Background Play](https://github.com/k1k4k/jellyfin-background-play), Player Queue…). Vous aviez ajouté l'ancienne adresse `jellyfin-player-queue/main/manifest….json` ? Elle reste valable et liste aussi les autres plugins.
 
 2. **Extensions → Disponible → Jellyfin Player Queue → Installer**, puis redémarrez Jellyfin.
 3. `Ctrl+F5` dans le navigateur.
@@ -171,7 +173,8 @@ docker run --rm -v "$PWD:/src" -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotnet 
 #### Publier une version
 
 1. Mettre à jour `VERSION` dans `jellyfin-queue-osd.js` et `<Version>` / `<AssemblyVersion>` dans le csproj.
-2. `git tag vX.Y.Z && git push origin vX.Y.Z` : le workflow **Release** compile les deux cibles, publie la release et met à jour les manifestes sur `main`.
+2. `git tag vX.Y.Z && git push origin vX.Y.Z` : le workflow **Release** compile les deux cibles, publie la release et met à jour les manifestes sur `main`. Le dépôt central [`jellyfin-plugins`](https://github.com/k1k4k/jellyfin-plugins) les reprend à son passage suivant (toutes les heures, ou tout de suite avec le secret `PLUGINS_REPO_TOKEN`).
+3. Le workflow **Sync manifests** (toutes les heures) recopie les autres plugins k1k4k du dépôt central dans les manifestes de ce dépôt, pour que l'ancienne adresse continue de les lister.
 
 </details>
 

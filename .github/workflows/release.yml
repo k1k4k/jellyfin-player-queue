@@ -5,6 +5,9 @@ name: Release
 # -> build jf12 + jf10, zips attachés à la release GitHub, manifest.json / manifest-10.11.json
 #    mis à jour et committés sur main. Les notes de la version (release + catalogue Jellyfin)
 #    sont prises dans CHANGELOG.md : sans section "## X.Y.Z", la publication échoue.
+# Le dépôt central k1k4k/jellyfin-plugins reprend ces manifestes à son prochain passage (toutes
+# les heures) ; avec le secret PLUGINS_REPO_TOKEN (PAT, droit "Contents: write" sur ce dépôt),
+# il est prévenu tout de suite.
 
 on:
   push:
@@ -12,6 +15,11 @@ on:
 
 permissions:
   contents: write
+
+# même groupe que Sync manifests : les deux écrivent manifest*.json sur main
+concurrency:
+  group: manifests
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -60,3 +68,12 @@ jobs:
           git add manifest.json manifest-10.11.json
           git commit -m "manifests: $GITHUB_REF_NAME" || echo "nothing to commit"
           git push origin HEAD:main
+
+      - name: Notify central plugin repository
+        env:
+          TOKEN: ${{ secrets.PLUGINS_REPO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "PLUGINS_REPO_TOKEN absent : le dépôt central se mettra à jour à son prochain passage."; exit 0; fi
+          curl -fsS -X POST -H "Authorization: Bearer $TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/k1k4k/jellyfin-plugins/dispatches \
+            -d "{\"event_type\":\"plugin-released\",\"client_payload\":{\"repo\":\"$GITHUB_REPOSITORY\",\"tag\":\"$GITHUB_REF_NAME\"}}"

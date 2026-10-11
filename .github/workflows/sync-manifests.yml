@@ -1,0 +1,35 @@
+name: Sync manifests
+
+# L'adresse du dépôt de ce plugin a été publiée en premier : ses manifestes listent aussi les
+# autres plugins k1k4k, repris du dépôt central k1k4k/jellyfin-plugins. Seules les entrées des
+# autres plugins changent ; celle de Player Queue reste gérée par le workflow Release.
+
+on:
+  schedule:
+    - cron: "47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: manifests
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Sync from central repository
+        run: python3 scripts/merge_manifests.py sync --own-guid ae203062-4b00-4c07-a7f6-83e69982d951
+
+      - name: Commit
+        run: |
+          git add manifest.json manifest-10.11.json
+          if git diff --cached --quiet; then echo "rien de nouveau"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "manifests: autres plugins k1k4k"
+          git push origin HEAD:main

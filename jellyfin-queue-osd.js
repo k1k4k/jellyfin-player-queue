@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.7.0
+ * Jellyfin Player Queue — v0.8.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,12 +25,13 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.7.0';
+    var VERSION = '0.8.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
     var pm = null;            // playbackManager (singleton)
     var panel = null;
+    var barPanel = null;      // panneau de la mini barre de Jellyfin Background Play (vidéo en fond)
     var refreshTimer = null;
 
     // Mode série ("à la Netflix") : épisodes de la série groupés par saison.
@@ -316,7 +317,13 @@
             '.jfQueueSeasonSelect option{background:#202020;color:#fff}',
             '.jfQueueItem.jfQueueSeries.jfQueuePast{opacity:1}',
             '.layout-mobile .jfQueuePanel{right:0;left:0;top:auto;bottom:0;width:auto;max-width:none;max-height:60vh;border-radius:.5em .5em 0 0}',
-            '@media (max-width:600px){.jfQueuePanel{right:0;left:0;top:auto;bottom:0;width:auto;max-width:none;max-height:60vh;border-radius:.5em .5em 0 0}}'
+            '@media (max-width:600px){.jfQueuePanel{right:0;left:0;top:auto;bottom:0;width:auto;max-width:none;max-height:60vh;border-radius:.5em .5em 0 0}}',
+            // mini barre de Background Play : panneau au-dessus de la barre, éléments flottants remontés
+            '.jfQueuePanel.jfQueuePanel-bar{bottom:5.6em;z-index:1202}',
+            '.layout-mobile .jfQueuePanel.jfQueuePanel-bar{bottom:4.6em}',
+            '@media (max-width:600px){.jfQueuePanel.jfQueuePanel-bar{bottom:4.6em}}',
+            'html.jfBgBarShown .jfPendingFab{bottom:6em}',
+            'html.jfBgBarShown .jfPendingPanel,html.jfBgBarShown .jfPendingToast{bottom:10em}'
         ].join('\n');
         var style = document.createElement('style');
         style.id = 'jfQueueOsdStyle';
@@ -423,13 +430,17 @@
             // la nouvelle file = cet épisode puis tout le reste de la série (toutes saisons).
             // Les saisons non encore chargées le sont à ce moment (en principe déjà
             // préchargées en tâche de fond).
+            var fromBar = panel === barPanel;
             closePanel();
             ensureAllEpisodes().then(function (all) {
                 var idx = -1;
                 for (var i = 0; i < all.length; i++) { if (all[i].Id === itemId) { idx = i; break; } }
                 if (idx < 0) return;
                 try {
-                    pm.play({ items: all.slice(idx), startIndex: 0 });
+                    var options = { items: all.slice(idx), startIndex: 0 };
+                    // depuis la mini barre de Background Play : la vidéo change sans rouvrir le lecteur
+                    if (fromBar) options.jfBackgroundPlay = 'keep';
+                    pm.play(options);
                 } catch (err) {
                     console.error(TAG, 'play failed', err);
                 }
@@ -1153,6 +1164,7 @@
         // rafraîchit l'état pendant que le panneau est ouvert
         refreshTimer = setInterval(function () {
             if (!panel || panel.classList.contains('hide')) { clearInterval(refreshTimer); return; }
+            if (panel === barPanel && !isBarShown()) { closePanel(); return; }
             // élément courant changé : nouveau rendu complet ; sinon, si seule la file a
             // bougé (SyncPlay, autre participant…), mise à jour légère
             var cur = panel.querySelector('.jfQueueCurrent');
@@ -1218,6 +1230,49 @@
         console.debug(TAG, 'button added to the video OSD');
     }
 
+    /* ---- mini barre de Jellyfin Background Play ---- */
+
+    // Quand Background Play fait continuer la vidéo hors du lecteur, sa mini barre offre un
+    // emplacement (.jfBgBarExtra) : on y met le même bouton, avec un panneau au-dessus de la barre.
+    function isBarShown() {
+        var bar = document.querySelector('.jfBgBar');
+        return !!bar && !bar.classList.contains('hide') && !bar.classList.contains('jfBgBar-hidden');
+    }
+
+    function ensureBarButton() {
+        var slot = document.querySelector('.jfBgBar .jfBgBarExtra');
+        if (!slot || slot.querySelector('.btnQueueBar')) return;
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btnQueueBar mediaButton paper-icon-button-light';
+        btn.title = t('queue');
+        btn.setAttribute('aria-label', t('queue'));
+        btn.innerHTML = '<span class="material-icons playlist_play" aria-hidden="true"></span>';
+        slot.appendChild(btn);
+
+        if (!barPanel) {
+            barPanel = buildPanel(document.body);
+            barPanel.classList.add('jfQueuePanel-bar');
+            // clic ailleurs (page, barre) → fermeture
+            document.addEventListener('click', function (e) {
+                if (barPanel.classList.contains('hide')) return;
+                if (barPanel.contains(e.target) || (e.target.closest && e.target.closest('.btnQueueBar'))) return;
+                activatePanel(barPanel);
+                closePanel();
+            }, true);
+        }
+
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();   // sinon la barre rouvre le lecteur
+            e.preventDefault();
+            activatePanel(barPanel);
+            togglePanel();
+        });
+
+        console.debug(TAG, 'button added to the Background Play bar');
+    }
+
     // Rend un panneau "courant" (celui sur lequel travaillent refresh/open/close),
     // en fermant celui d'une autre page s'il était ouvert.
     function activatePanel(pagePanel) {
@@ -1243,11 +1298,13 @@
         if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
         if (isTypingTarget(e.target)) return;
         if ((e.key || '').toLowerCase() !== t('shortcut').toLowerCase()) return;
+        // vidéo en fond (mini barre de Background Play) : le panneau de la barre
         var page = getActiveOsdPage();
-        if (!page || !page.__jfQueuePanel) return;
+        var target = (barPanel && isBarShown()) ? barPanel : (page && page.__jfQueuePanel);
+        if (!target) return;
         e.preventDefault();
         e.stopPropagation();
-        activatePanel(page.__jfQueuePanel);
+        activatePanel(target);
         togglePanel();
     }
 
@@ -1255,6 +1312,7 @@
         var check = function () {
             var pages = document.querySelectorAll('#videoOsdPage');
             for (var i = 0; i < pages.length; i++) ensureButton(pages[i]);
+            ensureBarButton();
         };
         check();
         var mo = new MutationObserver(function (muts) {

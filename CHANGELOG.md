@@ -2,6 +2,11 @@
 
 What's new in each version, as shown in Jellyfin's plugin catalog.
 
+## 0.8.0
+
+- Works with Jellyfin Background Play: when the video keeps playing in the mini player bar, the queue button is there too, with the panel right above the bar (shortcut `Q` as well).
+- Picking an episode from that panel switches to it without reopening the player.
+
 ## 0.7.0
 
 - Works with SyncPlay: everything you do in the panel applies to the whole group.
