@@ -2,6 +2,15 @@
 
 What's new in each version, as shown in Jellyfin's plugin catalog.
 
+## 0.9.0
+
+- New settings page: Settings → Play queue (Player Queue). Your choices follow your account on every device.
+- Turn off any of the plugin's changes to get Jellyfin's original behavior back (pending queue, chronological collections, "Play all from here", single-episode "Play next").
+- Customize the panel: view when opening, position, width, density, opacity, thumbnails, watched episodes, episode numbers.
+- Optional queue end time in the panel header ("ends at 11:40 PM").
+- Choose your keyboard shortcut, turn off season preloading, and get a confirmation before clearing the pending queue.
+- Admins can set the pending queue's maximum size on the plugin's page.
+
 ## 0.8.0
 
 - Works with Jellyfin Background Play: when the video keeps playing in the mini player bar, the queue button is there too, with the panel right above the bar (shortcut `Q` as well).

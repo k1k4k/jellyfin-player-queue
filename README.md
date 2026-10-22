@@ -46,6 +46,16 @@ A <img src="docs/playlist_play.svg" width="20" height="20" alt="" align="absmidd
 - Honors Jellyfin's "Play next episode automatically" setting.
 - English or French, following the browser language.
 
+### Settings
+
+**Settings → Play queue (Player Queue)**, saved with your account so they follow you on every device:
+
+- **Behavior**: turn off any of the changes above (pending queue, chronological collections, "Play all from here", single-episode "Play next") to get Jellyfin's original behavior back.
+- **Panel**: view when opening (seasons or queue), position, width, density, background opacity, thumbnails, watched episodes (normal, dimmed or hidden), episode numbers (E4, S14:E4 or title only), queue end time.
+- **Other**: keyboard shortcut, preloading of the other seasons, confirmation before clearing the pending queue.
+
+The server admin sets the pending queue's maximum size on the plugin's page.
+
 <table>
   <tr>
     <td align="center" valign="top"><img src="docs/screen-menu.png" width="240" alt="⋮ menu: Play next, Add to end of queue, Remove"><br><sub><code>⋮</code> menu</sub></td>
@@ -131,7 +141,7 @@ The script doesn't patch Jellyfin: it finds the internal player by its content, 
 ## Coming next
 
 - **More languages**: today the interface is in English and French. More translations are planned, and you'll be able to add your own language file without waiting for a new release.
-- **Settings**: server-wide options for the admin (defaults, limits, what users may change) and personal options for each user (panel behavior, display), right from Jellyfin.
+- **More admin options**: server-wide defaults for every setting, and the ability to lock the ones that put load on the server.
 
 Ideas and requests are welcome in the [issues](https://github.com/k1k4k/jellyfin-player-queue/issues).
 

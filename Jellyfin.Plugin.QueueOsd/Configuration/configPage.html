@@ -29,6 +29,17 @@
                         </div>
                     </div>
 
+                    <div class="inputContainer">
+                        <input id="txtPendingMax" name="txtPendingMax" type="number" is="emby-input" min="10" max="2000" step="10"
+                               label="Taille maximale de la file en attente / Pending queue max size" />
+                        <div class="fieldDescription">
+                            Nombre d'éléments qu'un utilisateur peut empiler depuis la bibliothèque quand rien ne joue (10 à 2000, 200 par défaut).
+                            Les autres réglages se font par chaque utilisateur : Paramètres → File de lecture.<br>
+                            <i>Items a user can pile up from the library while nothing is playing (10–2000, default 200).
+                            Other settings are per user: Settings → Play queue.</i>
+                        </div>
+                    </div>
+
                     <div class="verticalSection">
                         <p id="QueueOsdStatus" class="fieldDescription"></p>
                     </div>
@@ -71,6 +82,7 @@
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                         page.querySelector('#chkEnabled').checked = config.Enabled !== false;
+                        page.querySelector('#txtPendingMax').value = config.PendingMax || 200;
                         Dashboard.hideLoadingMsg();
                         loadStatus();
                     });
@@ -81,6 +93,8 @@
                     Dashboard.showLoadingMsg();
                     ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                         config.Enabled = page.querySelector('#chkEnabled').checked;
+                        var max = parseInt(page.querySelector('#txtPendingMax').value, 10);
+                        config.PendingMax = isNaN(max) ? 200 : Math.min(2000, Math.max(10, max));
                         ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                             loadStatus();

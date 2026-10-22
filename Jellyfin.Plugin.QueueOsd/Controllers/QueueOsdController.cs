@@ -27,6 +27,17 @@ public class QueueOsdController : ControllerBase
         return new FileStreamResult(stream, "text/javascript; charset=utf-8");
     }
 
+    /// <summary>GET /QueueOsd/config — réglages du serveur utiles au script client (rien de sensible).</summary>
+    [HttpGet("config")]
+    [AllowAnonymous]
+    public ActionResult<object> GetClientConfig()
+    {
+        var max = Plugin.Instance?.Configuration.PendingMax ?? Configuration.PluginConfiguration.DefaultPendingMax;
+        max = Math.Clamp(max, Configuration.PluginConfiguration.MinPendingMax, Configuration.PluginConfiguration.MaxPendingMax);
+        Response.Headers["Cache-Control"] = "no-cache";
+        return new { pendingMax = max };
+    }
+
     /// <summary>GET /QueueOsd/status — version et état, pour la page de configuration.</summary>
     [HttpGet("status")]
     [Authorize(Policy = "RequiresElevation")]

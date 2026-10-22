@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.8.0
+ * Jellyfin Player Queue — v0.9.0
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.8.0';
+    var VERSION = '0.9.0';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -57,21 +57,21 @@
     /* ------------------------------------------------------------------ */
 
     var STRINGS = {
-        fr: { queue: 'File de lecture', remaining: 'à suivre', empty: 'Aucun élément dans la file.', close: 'Fermer', watched: 'Vu', shortcut: 'Q',
+        fr: { queue: 'File de lecture', remaining: 'à suivre', empty: 'Aucun élément dans la file.', close: 'Fermer', watched: 'Vu',
               season: 'Saison', specials: 'Spéciaux', episodes: 'épisodes', prevSeason: 'Saison précédente', nextSeason: 'Saison suivante',
               showQueue: 'Voir la file de lecture', showSeasons: 'Voir les saisons', loading: 'Chargement…', loadError: 'Impossible de charger les épisodes.',
               playNext: 'Lire ensuite', addToQueue: 'Ajouter à la fin de la file', remove: 'Retirer de la file', drag: 'Glisser pour réordonner', inQueue: 'Dans la file', more: 'Options',
               pendingTitle: 'File en attente', pendingEmpty: 'Rien en attente.', play: 'Lire', clear: 'Vider',
-              appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments',
+              appendToQueue: 'Ajouter à la file en cours', added: 'ajouté à la file en attente', items: 'éléments', item: 'élément',
               full: 'File en attente pleine ({0} éléments) : rien ajouté.', partial: '{0} ajouté(s), {1} ignoré(s) : file pleine ({2} maximum).',
               trimmed: '{0} ajouté(s) en tête ; {1} retiré(s) de la fin (file pleine, {2} maximum).',
               partialMore: '{0} ajouté(s) : file pleine ({1} maximum), le reste a été ignoré.' },
-        en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched', shortcut: 'Q',
+        en: { queue: 'Play queue', remaining: 'up next', empty: 'Nothing in the queue.', close: 'Close', watched: 'Watched',
               season: 'Season', specials: 'Specials', episodes: 'episodes', prevSeason: 'Previous season', nextSeason: 'Next season',
               showQueue: 'Show play queue', showSeasons: 'Show seasons', loading: 'Loading…', loadError: 'Could not load episodes.',
               playNext: 'Play next', addToQueue: 'Add to end of queue', remove: 'Remove from queue', drag: 'Drag to reorder', inQueue: 'In queue', more: 'Options',
               pendingTitle: 'Pending queue', pendingEmpty: 'Nothing pending.', play: 'Play', clear: 'Clear',
-              appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items',
+              appendToQueue: 'Add to current queue', added: 'added to the pending queue', items: 'items', item: 'item',
               full: 'Pending queue is full ({0} items): nothing added.', partial: '{0} added, {1} skipped: queue is full ({2} max).',
               trimmed: '{0} added at the top; {1} dropped from the end (queue full, {2} max).',
               partialMore: '{0} added: queue is full ({1} max), the rest was ignored.' }
@@ -238,7 +238,7 @@
         if (document.getElementById('jfQueueOsdStyle')) return;
         var css = [
             '.jfQueuePanel{position:fixed;top:5.5em;right:1.5em;bottom:9em;width:26em;max-width:calc(100vw - 3em);',
-            '  display:flex;flex-direction:column;background:rgba(16,16,16,.92);color:#fff;border-radius:.5em;',
+            '  display:flex;flex-direction:column;background:rgba(16,16,16,var(--jfq-alpha,.92));color:#fff;border-radius:.5em;',
             '  box-shadow:0 .5em 2em rgba(0,0,0,.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);',
             '  z-index:1000;overflow:hidden;font-size:1em;pointer-events:auto;user-select:none;-webkit-user-select:none}',
             '.jfQueuePanel.hide{display:none!important}',
@@ -323,7 +323,55 @@
             '.layout-mobile .jfQueuePanel.jfQueuePanel-bar{bottom:4.6em}',
             '@media (max-width:600px){.jfQueuePanel.jfQueuePanel-bar{bottom:4.6em}}',
             'html.jfBgBarShown .jfPendingFab{bottom:6em}',
-            'html.jfBgBarShown .jfPendingPanel,html.jfBgBarShown .jfPendingToast{bottom:10em}'
+            'html.jfBgBarShown .jfPendingPanel,html.jfBgBarShown .jfPendingToast{bottom:10em}',
+            // réglages d'apparence (emplacement et largeur : écrans larges seulement, le mobile reste en bas)
+            '@media (min-width:601px){html:not(.layout-mobile) .jfQueuePanel.jfqLeft{right:auto;left:1.5em}',
+            '  html:not(.layout-mobile) .jfQueuePanel.jfqNarrow{width:21em}',
+            '  html:not(.layout-mobile) .jfQueuePanel.jfqWide{width:34em}}',
+            '.jfQueueEndTime{display:block;margin:.1em 0 0}',
+            '.jfQueueEndTime:empty{display:none}',
+            '.jfqCompact .jfQueueItem{padding:.25em 1em;gap:.6em}',
+            '.jfqCompact .jfQueueThumb{width:4.5em}',
+            '.jfqCompact .jfQueueText{gap:0}',
+            '.jfqNoThumbs .jfQueueThumb{display:none}',
+            '.jfqWatchedDimmed .jfQueueItem.jfQueueSeries.jfQueueWatched:not(.jfQueueCurrent){opacity:.45}',
+            '.jfqWatchedHidden .jfQueueItem.jfQueueSeries.jfQueueWatched:not(.jfQueueCurrent){display:none}',
+            // fenêtre de réglages
+            '.jfqSettingsOverlay{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center}',
+            '.jfqSettingsOverlay.hide{display:none!important}',
+            '.jfqSettings{background:#202020;color:#fff;width:40em;max-width:calc(100vw - 2em);max-height:calc(100vh - 2em);',
+            '  display:flex;flex-direction:column;border-radius:.5em;box-shadow:0 .5em 2em rgba(0,0,0,.7);overflow:hidden}',
+            '.jfqSettingsHeader{display:flex;align-items:center;gap:.6em;padding:.8em .6em .8em 1.2em;border-bottom:1px solid rgba(255,255,255,.1)}',
+            '.jfqSettingsHeader .material-icons.playlist_play{color:#00a4dc}',
+            '.jfqSettingsTitle{flex:1 1 auto;font-size:1.2em;font-weight:600}',
+            '.jfqSettingsHeader .paper-icon-button-light{color:#fff}',
+            '.jfqSettingsBody{overflow-y:auto;padding:.2em 1.2em 1em}',
+            '.jfqSettingsBody h3{margin:1.2em 0 .3em;font-size:1em;font-weight:600;color:#00a4dc;text-transform:uppercase;letter-spacing:.04em}',
+            '.jfqHint{margin:.2em 0 .5em;font-size:.85em;opacity:.65}',
+            '.jfqRow{display:flex;align-items:center;gap:1em;padding:.6em 0;border-bottom:1px solid rgba(255,255,255,.06)}',
+            '.jfqRowText{flex:1 1 auto;min-width:0}',
+            '.jfqRowLabel{font-weight:500}',
+            '.jfqDevice{font-weight:400;font-size:.85em;opacity:.55}',
+            '.jfqRowDesc{font-size:.82em;opacity:.6;margin-top:.15em}',
+            '.jfqRowDesc.jfqWarn{color:#ffb74d;opacity:1}',
+            '.jfqRowControl{flex:0 0 auto}',
+            '.jfqSelect{background:#2c2c2c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:.3em;padding:.4em .5em;font:inherit;max-width:16em}',
+            '.jfqKey{width:2.6em;text-align:center;text-transform:uppercase;background:#2c2c2c;color:#fff;border:1px solid rgba(255,255,255,.15);',
+            '  border-radius:.3em;padding:.4em;font:inherit;font-weight:600;caret-color:transparent}',
+            '.jfqKey:focus,.jfqSelect:focus{outline:2px solid #00a4dc;outline-offset:1px}',
+            '.jfqSwitch{position:relative;display:inline-block;width:2.6em;height:1.5em;cursor:pointer}',
+            '.jfqSwitch input{opacity:0;width:0;height:0;position:absolute}',
+            '.jfqSwitch span{position:absolute;inset:0;background:#555;border-radius:1em;transition:background .15s}',
+            '.jfqSwitch span:before{content:"";position:absolute;width:1.1em;height:1.1em;left:.2em;top:.2em;background:#fff;border-radius:50%;transition:transform .15s}',
+            '.jfqSwitch input:checked+span{background:#00a4dc}',
+            '.jfqSwitch input:checked+span:before{transform:translateX(1.1em)}',
+            '.jfqSwitch input:focus-visible+span{outline:2px solid #fff;outline-offset:2px}',
+            '.jfqSettingsFooter{display:flex;justify-content:flex-end;gap:.6em;padding:.8em 1.2em;border-top:1px solid rgba(255,255,255,.1)}',
+            '.jfqSettingsFooter button{background:rgba(255,255,255,.12);color:#fff;border:0;border-radius:.3em;padding:.6em 1.2em;font:inherit;cursor:pointer}',
+            '.jfqSettingsFooter button.jfqDone{background:#00a4dc;font-weight:600}',
+            '.jfqSettingsFooter button:hover{filter:brightness(1.15)}',
+            '@media (max-width:600px){.jfqSettings{width:100vw;max-width:none;height:100vh;max-height:none;border-radius:0}}',
+            '.jfPendingFooter button.jfPendingConfirm{background:#c62828}'
         ].join('\n');
         var style = document.createElement('style');
         style.id = 'jfQueueOsdStyle';
@@ -340,7 +388,7 @@
         panel.className = 'jfQueuePanel hide';
         panel.innerHTML =
             '<div class="jfQueueHeader">' +
-            '  <div><span class="jfQueueTitle">' + escapeHtml(t('queue')) + '</span><span class="jfQueueCount"></span></div>' +
+            '  <div><span class="jfQueueTitle">' + escapeHtml(t('queue')) + '</span><span class="jfQueueCount"></span><span class="jfQueueCount jfQueueEndTime"></span></div>' +
             '  <div class="jfQueueHeaderBtns">' +
             '    <button type="button" class="jfQueueToggleView paper-icon-button-light autoSize hide" title="' + escapeHtml(t('showQueue')) + '">' +
             '      <span class="material-icons playlist_play" aria-hidden="true"></span></button>' +
@@ -392,6 +440,7 @@
             renderSeries({ center: true });
         });
 
+        applyPanelSettings(panel);
         page.appendChild(panel);
         return panel;
     }
@@ -597,6 +646,7 @@
     // Charge les saisons restantes en tâche de fond : le panneau est utilisable tout de
     // suite, et un clic sur un épisode hors file trouve la série complète sans attendre.
     function prefetchSeasons() {
+        if (!setting('prefetch')) return;
         if (!series || series.complete || series.__prefetching) return;
         var target = series;
         target.__prefetching = true;
@@ -703,6 +753,7 @@
             var cur = list.querySelector('.jfQueueCurrent');
             if (opts.center && cur && typeof cur.scrollIntoView === 'function') cur.scrollIntoView({ block: 'center' });
             else list.scrollTop = scroll;
+            updateEndTime(queue);
         });
     }
 
@@ -814,6 +865,12 @@
     // que celui-là, on passe par le gestionnaire de file local quand le lecteur est local,
     // et en SyncPlay par la requête serveur (qui prend la liste d'ids telle quelle).
     function enqueueSingle(item, mode) {
+        if (!setting('playNextSingle')) {
+            // comportement d'origine : l'épisode et tous ceux qui le suivent
+            var plain = {};
+            for (var p in item) if (Object.prototype.hasOwnProperty.call(item, p) && p !== 'PlaylistItemId') plain[p] = item[p];
+            return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [plain] }) : pm.queue({ items: [plain] }));
+        }
         var sp = isSyncPlay() && syncPlayApi();
         if (sp) {
             return Promise.resolve(sp.requestSyncPlayQueue({ ItemIds: [item.Id], Mode: mode === 'next' ? 'QueueNext' : 'Queue' }));
@@ -1001,15 +1058,14 @@
     }
 
     function renderItem(item, o) {
-        var label = o.series
-            ? (item.IndexNumber != null ? 'E' + item.IndexNumber : '')
-            : getEpisodeLabel(item);
+        var label = itemLabel(item, o.series);
         var mins = ticksToMinutes(item.RunTimeTicks);
         var ud = item.UserData || {};
         var pct = (ud.PlaybackPositionTicks && item.RunTimeTicks)
             ? Math.min(100, Math.round(ud.PlaybackPositionTicks * 100 / item.RunTimeTicks)) : 0;
         var meta = [o.series ? '' : getSubtitle(item), mins ? mins + ' min' : ''].filter(Boolean).join(' · ');
-        var cls = 'jfQueueItem' + (o.current ? ' jfQueueCurrent' : '') + (o.past ? ' jfQueuePast' : '') + (o.series ? ' jfQueueSeries' : '');
+        var cls = 'jfQueueItem' + (o.current ? ' jfQueueCurrent' : '') + (o.past ? ' jfQueuePast' : '') + (o.series ? ' jfQueueSeries' : '') +
+            (ud.Played ? ' jfQueueWatched' : '');
         return '<div class="' + cls + '" tabindex="0" data-itemid="' + escapeHtml(item.Id) + '" data-playlistitemid="' + escapeHtml(o.playlistItemId || '') + '" data-inqueueahead="' + (o.inQueueAhead ? '1' : '0') + '">' +
             '<div ' + thumbAttrs(item) + '>' +
             (o.current ? '<span class="material-icons play_arrow" aria-hidden="true"></span>' : '') +
@@ -1082,6 +1138,7 @@
             lastQueueSig = queueSig(items);
             lastMode = 'queue';
             renderList(items || [], currentId);
+            updateEndTime(items || []);
         }).catch(function (err) {
             console.error(TAG, 'getPlaylist failed', err);
         });
@@ -1158,7 +1215,18 @@
         panel.classList.remove('hide');
         revalidate = true;          // rafraîchit en tâche de fond les "vu"/progression du cache
         lastCurrentItemId = null;   // force le recentrage sur l'épisode en cours
-        view = 'auto';              // la vue "file brute" n'est pas mémorisée d'une ouverture à l'autre
+        // vue à l'ouverture : réglage de l'utilisateur (le choix fait panneau ouvert n'est pas mémorisé)
+        view = setting('defaultView') === 'queue' ? 'queue' : 'auto';
+        applyPanelSettings(panel);
+        // réglages du compte pas encore arrivés (tout début de session) : appliqués dès réception
+        if (!userPrefs) {
+            var opening = panel;
+            ensureUserSettings().then(function (prefs) {
+                if (!prefs || panel !== opening || opening.classList.contains('hide')) return;
+                view = setting('defaultView') === 'queue' ? 'queue' : 'auto';
+                refresh();
+            });
+        }
         refresh();
         clearInterval(refreshTimer);
         // rafraîchit l'état pendant que le panneau est ouvert
@@ -1170,7 +1238,7 @@
             var cur = panel.querySelector('.jfQueueCurrent');
             var nowId = (getCurrentItem() || {}).Id || '';
             if (!cur || cur.getAttribute('data-itemid') !== nowId) refresh();
-            else checkQueueChanged();
+            else checkQueueChanged().then(function (changed) { if (!changed) updateEndTime(); });
         }, 2000);
     }
 
@@ -1201,7 +1269,7 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btnQueueOsd autoSize paper-icon-button-light';
-        btn.title = t('queue') + ' (' + t('shortcut') + ')';
+        btn.title = t('queue') + (shortcutKey() ? ' (' + shortcutKey().toUpperCase() + ')' : '');
         btn.setAttribute('aria-label', t('queue'));
         btn.innerHTML = '<span class="xlargePaperIconButton material-icons playlist_play" aria-hidden="true"></span>';
         // Les boutons sont en row-reverse : insérer avant "settings" le place à sa droite visuellement.
@@ -1297,7 +1365,8 @@
     function onKeyDown(e) {
         if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
         if (isTypingTarget(e.target)) return;
-        if ((e.key || '').toLowerCase() !== t('shortcut').toLowerCase()) return;
+        var sc = shortcutKey();
+        if (!sc || (e.key || '').toLowerCase() !== sc) return;
         // vidéo en fond (mini barre de Background Play) : le panneau de la barre
         var page = getActiveOsdPage();
         var target = (barPanel && isBarShown()) ? barPanel : (page && page.__jfQueuePanel);
@@ -1313,6 +1382,7 @@
             var pages = document.querySelectorAll('#videoOsdPage');
             for (var i = 0; i < pages.length; i++) ensureButton(pages[i]);
             ensureBarButton();
+            ensureSettingsEntry();
         };
         check();
         var mo = new MutationObserver(function (muts) {
@@ -1454,7 +1524,7 @@
 
             // 1. collection lancée telle quelle -> ordre chronologique
             var detect = null;
-            try { detect = detectBoxSet(options); } catch (e) { detect = null; }
+            try { detect = setting('chronoCollections') ? detectBoxSet(options) : null; } catch (e) { detect = null; }
             if (detect) {
                 return detect.then(function (boxSetId) {
                     if (!boxSetId) return origPlay.apply(self, args);
@@ -1471,7 +1541,7 @@
 
             // 2. "lire à partir d'ici" au milieu d'une liste
             var fromHere = null;
-            try { fromHere = detectSeasonStart(options); } catch (e) { fromHere = null; }
+            try { fromHere = setting('seasonFromHere') ? detectSeasonStart(options) : null; } catch (e) { fromHere = null; }
             if (!fromHere) return origPlay.apply(self, args);
 
             return fromHere.then(function (items) {
@@ -1582,11 +1652,16 @@
     }
 
     function addToPending(options, mode) {
+        return ensureServerConfig().then(function () { return addToPendingWithMax(options, mode, pendingMax()); });
+    }
+
+    // max : plafond effectif de la file en attente (réglage du serveur, sinon PENDING_MAX).
+    function addToPendingWithMax(options, mode, max) {
         // Place disponible : en mode "fin" ce qui reste, en mode "lire ensuite" la file
         // entière (l'insertion en tête rogne la fin).
-        var room = mode === 'next' ? PENDING_MAX : PENDING_MAX - pending.length;
+        var room = mode === 'next' ? max : max - pending.length;
         if (room <= 0) {
-            showToast(t('full', PENDING_MAX));
+            showToast(t('full', max));
             return Promise.resolve();
         }
         return resolveQueueOptions(options).then(function (items) {
@@ -1622,15 +1697,15 @@
                 // déborde, on rogne la fin plutôt que de refuser l'ajout.
                 pending = flat.concat(pending);
                 var dropped = 0;
-                if (pending.length > PENDING_MAX) {
-                    dropped = pending.length - PENDING_MAX;
-                    pending = pending.slice(0, PENDING_MAX);
+                if (pending.length > max) {
+                    dropped = pending.length - max;
+                    pending = pending.slice(0, max);
                 }
                 savePending();
                 updatePendingUi();
-                if (res.stoppedEarly) showToast(t('partialMore', flat.length, PENDING_MAX));
-                else if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
-                else if (dropped > 0) showToast(t('trimmed', flat.length, dropped, PENDING_MAX));
+                if (res.stoppedEarly) showToast(t('partialMore', flat.length, max));
+                else if (skipped > 0) showToast(t('partial', flat.length, skipped, max));
+                else if (dropped > 0) showToast(t('trimmed', flat.length, dropped, max));
                 else showToast(addedMsg(flat.length));
                 return;
             }
@@ -1638,12 +1713,18 @@
             pending = pending.concat(flat);
             savePending();
             updatePendingUi();
-            if (res.stoppedEarly) showToast(t('partialMore', flat.length, PENDING_MAX));
-            else if (skipped > 0) showToast(t('partial', flat.length, skipped, PENDING_MAX));
+            if (res.stoppedEarly) showToast(t('partialMore', flat.length, max));
+            else if (skipped > 0) showToast(t('partial', flat.length, skipped, max));
             else showToast(addedMsg(flat.length));
         }).catch(function (err) {
             console.error(TAG, 'addToPending failed', err);
         });
+    }
+
+    function disarmClear(b) {
+        clearTimeout(b.__disarm);
+        b.classList.remove('jfPendingConfirm');
+        b.querySelector('.jfPendingClearLabel').textContent = t('clear');
     }
 
     function clearPending() {
@@ -1706,22 +1787,21 @@
         var origQueue = pm.queue;
         var origQueueNext = pm.queueNext;
 
+        // réglage désactivé, ou lecture en cours : fonctions d'origine de Jellyfin
+        var native = function (self) {
+            if (!setting('pendingQueue')) return true;
+            try { return !!self.getCurrentPlayer(); } catch (e) { return false; }
+        };
         pm.canQueue = function (item) {
-            try {
-                if (this.getCurrentPlayer()) return origCanQueue.apply(this, arguments);
-            } catch (e) { /* ignore */ }
+            if (native(this)) return origCanQueue.apply(this, arguments);
             return isQueueableType(item);
         };
         pm.queue = function (options) {
-            try {
-                if (this.getCurrentPlayer()) return origQueue.apply(this, arguments);
-            } catch (e) { /* ignore */ }
+            if (native(this)) return origQueue.apply(this, arguments);
             return addToPending(options, 'end');
         };
         pm.queueNext = function (options) {
-            try {
-                if (this.getCurrentPlayer()) return origQueueNext.apply(this, arguments);
-            } catch (e) { /* ignore */ }
+            if (native(this)) return origQueueNext.apply(this, arguments);
             return addToPending(options, 'next');
         };
         pm.__jfPendingWrapped = true;
@@ -1760,7 +1840,7 @@
             '<div class="jfPendingFooter">' +
             '  <button type="button" class="jfPendingPlay"><span class="material-icons play_arrow" aria-hidden="true"></span>' + escapeHtml(t('play')) + '</button>' +
             '  <button type="button" class="jfPendingAppend hide"><span class="material-icons playlist_add" aria-hidden="true"></span>' + escapeHtml(t('appendToQueue')) + '</button>' +
-            '  <button type="button" class="jfPendingClear"><span class="material-icons delete_outline" aria-hidden="true"></span>' + escapeHtml(t('clear')) + '</button>' +
+            '  <button type="button" class="jfPendingClear"><span class="material-icons delete_outline" aria-hidden="true"></span><span class="jfPendingClearLabel">' + escapeHtml(t('clear')) + '</span></button>' +
             '</div>';
 
         fab.addEventListener('click', function (e) {
@@ -1770,7 +1850,20 @@
         panel.querySelector('.jfQueueClose').addEventListener('click', closePendingPanel);
         panel.querySelector('.jfPendingPlay').addEventListener('click', function () { startPending(false); });
         panel.querySelector('.jfPendingAppend').addEventListener('click', function () { startPending(true); });
-        panel.querySelector('.jfPendingClear').addEventListener('click', function () { clearPending(); closePendingPanel(); });
+        panel.querySelector('.jfPendingClear').addEventListener('click', function () {
+            var b = this;
+            // réglage "Confirmer avant de vider" : un 1er clic arme le bouton quelques secondes
+            if (setting('confirmClear') && !b.classList.contains('jfPendingConfirm')) {
+                b.classList.add('jfPendingConfirm');
+                b.querySelector('.jfPendingClearLabel').textContent = t('confirmClearAsk');
+                clearTimeout(b.__disarm);
+                b.__disarm = setTimeout(function () { disarmClear(b); }, 4000);
+                return;
+            }
+            disarmClear(b);
+            clearPending();
+            closePendingPanel();
+        });
         panel.querySelector('.jfQueueList').addEventListener('click', function (e) {
             var btn = e.target.closest('[data-pending-remove]');
             if (!btn) return;
@@ -1787,6 +1880,7 @@
             if (e.key === 'Escape' && !panel.classList.contains('hide')) closePendingPanel();
         });
 
+        applyPanelSettings(panel);
         document.body.appendChild(fab);
         document.body.appendChild(panel);
         pendingUi = { fab: fab, panel: panel };
@@ -1796,13 +1890,13 @@
         if (!pendingUi) return;
         var list = pendingUi.panel.querySelector('.jfQueueList');
         var count = pendingUi.panel.querySelector('.jfQueueCount');
-        count.textContent = pending.length ? pending.length + ' ' + t('items') : '';
+        count.textContent = pending.length ? pending.length + ' ' + t(pending.length > 1 ? 'items' : 'item') : '';
         if (!pending.length) {
             list.innerHTML = '<div class="jfQueueEmpty">' + escapeHtml(t('pendingEmpty')) + '</div>';
             return;
         }
         list.innerHTML = pending.map(function (item, i) {
-            var label = getEpisodeLabel(item);
+            var label = itemLabel(item, false);
             var mins = ticksToMinutes(item.RunTimeTicks);
             var meta = [getSubtitle(item), mins ? mins + ' min' : ''].filter(Boolean).join(' · ');
             return '<div class="jfQueueItem">' +
@@ -1851,7 +1945,419 @@
     }
 
     /* ------------------------------------------------------------------ */
-    /*  8. Init                                                            */
+    /*  8. Réglages                                                        */
+    /* ------------------------------------------------------------------ */
+
+    // Réglages de l'utilisateur, dans des préférences d'affichage à nous (DisplayPreferences
+    // "jfPlayerQueue") : ils suivent le compte sur tous les appareils. Ceux qui dépendent de
+    // l'écran (emplacement, largeur, densité) restent propres à l'appareil (localStorage).
+    // Le plafond de la file en attente vient du serveur (page du plugin), 200 par défaut.
+    var PREFS_ID = 'jfPlayerQueue';
+    var DEVICE_PREFIX = 'jfPlayerQueue.';
+    var SETTINGS = {
+        // comportement : désactivé = fonctionnement d'origine de Jellyfin
+        pendingQueue: { def: true },
+        chronoCollections: { def: true },
+        seasonFromHere: { def: true },
+        playNextSingle: { def: true },
+        // panneau
+        defaultView: { def: 'seasons', values: ['seasons', 'queue'] },
+        side: { def: 'right', values: ['right', 'left'], device: true },
+        width: { def: 'normal', values: ['narrow', 'normal', 'wide'], device: true },
+        density: { def: 'comfortable', values: ['comfortable', 'compact'], device: true },
+        opacity: { def: '92', values: ['100', '92', '80', '65'] },
+        thumbnails: { def: true },
+        watched: { def: 'normal', values: ['normal', 'dimmed', 'hidden'] },
+        labels: { def: 'auto', values: ['auto', 'episode', 'full', 'none'] },
+        endTime: { def: true },
+        // divers
+        shortcut: { def: 'q' },
+        prefetch: { def: true },
+        confirmClear: { def: true }
+    };
+
+    var userPrefs = null;         // DisplayPreferences complètes (CustomPrefs = nos réglages)
+    var userPrefsFor = null;      // utilisateur auquel elles appartiennent
+    var userPrefsLoading = null;
+    var saveTimer = null;
+    var serverConfig = null;      // { pendingMax } exposé par le plugin, s'il est installé
+    var serverConfigLoading = null;
+
+    (function addStrings() {
+        var add = {
+            fr: { endsAt: 'fin vers {0}', settingsEntry: 'File de lecture (Player Queue)', settingsTitle: 'File de lecture',
+                  secBehavior: 'Comportement', secBehaviorHint: 'Désactivé : Jellyfin fonctionne comme sans le plugin.',
+                  secPanel: 'Panneau', secMisc: 'Divers', thisDevice: 'cet appareil', reset: 'Réinitialiser', done: 'Fermer',
+                  s_pendingQueue: 'File en attente quand rien ne joue', d_pendingQueue: '« Ajouter à la file d\'attente » et « Lire ensuite » disponibles dans la bibliothèque même sans lecture en cours.',
+                  s_chronoCollections: 'Collections dans l\'ordre chronologique', d_chronoCollections: 'Sinon, l\'ordre d\'ajout à la bibliothèque.',
+                  s_seasonFromHere: '« Tout lire à partir d\'ici » démarre à la saison choisie', d_seasonFromHere: 'Sinon, Jellyfin repart du premier épisode de la série.',
+                  s_playNextSingle: '« Lire ensuite » n\'ajoute que l\'épisode choisi', d_playNextSingle: 'Sinon, Jellyfin ajoute aussi tous les épisodes qui le suivent.',
+                  s_defaultView: 'Vue à l\'ouverture', v_seasons: 'Saisons', v_queue: 'File de lecture',
+                  s_side: 'Emplacement', v_right: 'À droite', v_left: 'À gauche',
+                  s_width: 'Largeur', v_narrow: 'Étroit', v_normal: 'Normal', v_wide: 'Large',
+                  s_density: 'Densité', v_comfortable: 'Confortable', v_compact: 'Compacte',
+                  s_opacity: 'Opacité du fond', v_100: 'Opaque', v_92: 'Normale', v_80: 'Translucide', v_65: 'Très translucide',
+                  s_thumbnails: 'Vignettes', d_thumbnails: 'Sans vignettes, moins d\'images à charger.',
+                  s_watched: 'Épisodes déjà vus (vue saisons)', v_dimmed: 'Grisés', v_hidden: 'Masqués',
+                  s_labels: 'Numéros d\'épisode', d_labels: 'Automatique : E4 en vue saisons, S14:E4 dans la file.', v_auto: 'Automatique', v_episode: 'E4', v_full: 'S14:E4', v_none: 'Titre seul',
+                  s_endTime: 'Heure de fin de la file', d_endTime: 'Dans l\'en-tête du panneau : « fin vers 23:40 ».',
+                  s_shortcut: 'Raccourci clavier', d_shortcut: 'Une touche pour ouvrir le panneau dans le lecteur. Vide : aucun raccourci.',
+                  shortcutTaken: 'Cette touche sert déjà au lecteur de Jellyfin.',
+                  s_prefetch: 'Précharger les autres saisons', d_prefetch: 'En tâche de fond, pour un clic instantané sur n\'importe quel épisode. Désactivé : moins de requêtes au serveur.',
+                  s_confirmClear: 'Confirmer avant de vider la file en attente',
+                  pendingMaxInfo: 'File en attente : {0} éléments au maximum.',
+                  pendingMaxAdmin: 'File en attente : {0} éléments au maximum (fixé par l\'administrateur du serveur).',
+                  confirmClearAsk: 'Vraiment vider ?' },
+            en: { endsAt: 'ends at {0}', settingsEntry: 'Play queue (Player Queue)', settingsTitle: 'Play queue',
+                  secBehavior: 'Behavior', secBehaviorHint: 'Off: Jellyfin works as it does without the plugin.',
+                  secPanel: 'Panel', secMisc: 'Other', thisDevice: 'this device', reset: 'Reset', done: 'Close',
+                  s_pendingQueue: 'Pending queue when nothing is playing', d_pendingQueue: '"Add to play queue" and "Play next" available in the library even when nothing is playing.',
+                  s_chronoCollections: 'Collections in chronological order', d_chronoCollections: 'Otherwise, the order they were added to the library.',
+                  s_seasonFromHere: '"Play all from here" starts at the chosen season', d_seasonFromHere: 'Otherwise, Jellyfin starts over from the first episode of the series.',
+                  s_playNextSingle: '"Play next" only adds the chosen episode', d_playNextSingle: 'Otherwise, Jellyfin also adds every episode after it.',
+                  s_defaultView: 'View when opening', v_seasons: 'Seasons', v_queue: 'Play queue',
+                  s_side: 'Position', v_right: 'Right', v_left: 'Left',
+                  s_width: 'Width', v_narrow: 'Narrow', v_normal: 'Normal', v_wide: 'Wide',
+                  s_density: 'Density', v_comfortable: 'Comfortable', v_compact: 'Compact',
+                  s_opacity: 'Background opacity', v_100: 'Opaque', v_92: 'Normal', v_80: 'Translucent', v_65: 'Very translucent',
+                  s_thumbnails: 'Thumbnails', d_thumbnails: 'Without thumbnails, fewer images to load.',
+                  s_watched: 'Watched episodes (seasons view)', v_dimmed: 'Dimmed', v_hidden: 'Hidden',
+                  s_labels: 'Episode numbers', d_labels: 'Automatic: E4 in seasons view, S14:E4 in the queue.', v_auto: 'Automatic', v_episode: 'E4', v_full: 'S14:E4', v_none: 'Title only',
+                  s_endTime: 'Queue end time', d_endTime: 'In the panel header: "ends at 11:40 PM".',
+                  s_shortcut: 'Keyboard shortcut', d_shortcut: 'A key that opens the panel in the player. Empty: no shortcut.',
+                  shortcutTaken: 'Jellyfin\'s player already uses this key.',
+                  s_prefetch: 'Preload the other seasons', d_prefetch: 'In the background, so any episode plays instantly. Off: fewer requests to the server.',
+                  s_confirmClear: 'Confirm before clearing the pending queue',
+                  pendingMaxInfo: 'Pending queue: {0} items max.',
+                  pendingMaxAdmin: 'Pending queue: {0} items max (set by the server administrator).',
+                  confirmClearAsk: 'Really clear?' }
+        };
+        Object.keys(add).forEach(function (lang) {
+            Object.keys(add[lang]).forEach(function (k) { STRINGS[lang][k] = add[lang][k]; });
+        });
+    })();
+
+    function parseSetting(name, raw) {
+        var d = SETTINGS[name];
+        if (raw === undefined || raw === null) return d.def;
+        if (typeof d.def === 'boolean') return raw === true || raw === 'true';
+        raw = String(raw);
+        if (d.values && d.values.indexOf(raw) < 0) return d.def;
+        return raw;
+    }
+
+    function setting(name) {
+        var d = SETTINGS[name];
+        if (!d) return undefined;
+        if (d.device) {
+            var v = null;
+            try { v = localStorage.getItem(DEVICE_PREFIX + name); } catch (e) { /* ignore */ }
+            return parseSetting(name, v);
+        }
+        var prefs = userPrefs && userPrefs.CustomPrefs;
+        return parseSetting(name, prefs ? prefs[name] : undefined);
+    }
+
+    function setSetting(name, value) {
+        var d = SETTINGS[name];
+        if (!d) return;
+        var raw = String(value);
+        if (d.device) {
+            try { localStorage.setItem(DEVICE_PREFIX + name, raw); } catch (e) { /* ignore */ }
+        } else if (userPrefs) {
+            userPrefs.CustomPrefs = userPrefs.CustomPrefs || {};
+            userPrefs.CustomPrefs[name] = raw;
+            scheduleSave();
+        }
+        applySettings();
+    }
+
+    function resetSettings() {
+        Object.keys(SETTINGS).forEach(function (name) {
+            if (SETTINGS[name].device) {
+                try { localStorage.removeItem(DEVICE_PREFIX + name); } catch (e) { /* ignore */ }
+            } else if (userPrefs && userPrefs.CustomPrefs) {
+                delete userPrefs.CustomPrefs[name];
+            }
+        });
+        scheduleSave();
+        applySettings();
+    }
+
+    function currentUserId() {
+        var api = window.ApiClient;
+        try { return api && api.getCurrentUserId && api.getCurrentUserId(); } catch (e) { return null; }
+    }
+
+    // Charge les réglages du compte connecté (une fois par utilisateur).
+    function ensureUserSettings() {
+        var api = window.ApiClient;
+        var userId = currentUserId();
+        if (!api || !userId || typeof api.getDisplayPreferences !== 'function') return Promise.resolve(null);
+        if (userPrefs && userPrefsFor === userId) return Promise.resolve(userPrefs);
+        // une requête en cours depuis trop longtemps (démarrage, réseau) est abandonnée et relancée
+        if (userPrefsLoading && userPrefsLoading.userId === userId && Date.now() - userPrefsLoading.at < 8000) {
+            return userPrefsLoading.promise;
+        }
+        var promise = Promise.resolve(api.getDisplayPreferences(PREFS_ID, userId, PREFS_ID)).then(function (prefs) {
+            if (currentUserId() !== userId) return null;
+            userPrefs = prefs || { Id: PREFS_ID, CustomPrefs: {} };
+            userPrefs.CustomPrefs = userPrefs.CustomPrefs || {};
+            userPrefsFor = userId;
+            userPrefsLoading = null;
+            applySettings();
+            return userPrefs;
+        }, function (err) {
+            userPrefsLoading = null;
+            console.warn(TAG, 'réglages utilisateur illisibles, valeurs par défaut', err);
+            return null;
+        });
+        userPrefsLoading = { userId: userId, promise: promise, at: Date.now() };
+        return promise;
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+            var api = window.ApiClient;
+            if (!api || !userPrefs || !userPrefsFor || currentUserId() !== userPrefsFor) return;
+            Promise.resolve(api.updateDisplayPreferences(PREFS_ID, userPrefs, userPrefsFor, PREFS_ID)).catch(function (err) {
+                console.warn(TAG, 'enregistrement des réglages impossible', err);
+            });
+        }, 400);
+    }
+
+    // Réglages côté serveur (plugin) : absents sans le plugin → valeurs par défaut.
+    function ensureServerConfig() {
+        if (serverConfig) return Promise.resolve(serverConfig);
+        if (serverConfigLoading) return serverConfigLoading;
+        var api = window.ApiClient;
+        if (!api || typeof api.getUrl !== 'function') return Promise.resolve({});
+        serverConfigLoading = fetch(api.getUrl('QueueOsd/config')).then(function (r) {
+            return r.ok ? r.json() : {};
+        }).catch(function () { return {}; }).then(function (cfg) {
+            serverConfig = cfg || {};
+            serverConfigLoading = null;
+            return serverConfig;
+        });
+        return serverConfigLoading;
+    }
+
+    function pendingMax() {
+        var n = serverConfig && parseInt(serverConfig.pendingMax, 10);
+        return n > 0 ? n : PENDING_MAX;
+    }
+
+    function shortcutKey() {
+        return String(setting('shortcut') || '').toLowerCase();
+    }
+
+    // Touches déjà utilisées par le lecteur de Jellyfin (pour prévenir, pas pour interdire).
+    var PLAYER_KEYS = ' kfmjlnpc0123456789';
+
+    // Applique tout ce qui se voit : classes des panneaux, titres des boutons.
+    function applySettings() {
+        var panels = document.querySelectorAll('.jfQueuePanel, .jfPendingPanel');
+        for (var i = 0; i < panels.length; i++) applyPanelSettings(panels[i]);
+        var sc = shortcutKey();
+        var btns = document.querySelectorAll('.btnQueueOsd');
+        for (var j = 0; j < btns.length; j++) btns[j].title = t('queue') + (sc ? ' (' + sc.toUpperCase() + ')' : '');
+    }
+
+    function applyPanelSettings(el) {
+        var c = el.classList;
+        c.toggle('jfqLeft', setting('side') === 'left');
+        c.toggle('jfqNarrow', setting('width') === 'narrow');
+        c.toggle('jfqWide', setting('width') === 'wide');
+        c.toggle('jfqCompact', setting('density') === 'compact');
+        c.toggle('jfqNoThumbs', !setting('thumbnails'));
+        c.toggle('jfqWatchedDimmed', setting('watched') === 'dimmed');
+        c.toggle('jfqWatchedHidden', setting('watched') === 'hidden');
+        el.style.setProperty('--jfq-alpha', String(parseInt(setting('opacity'), 10) / 100));
+    }
+
+    // Libellé d'un élément selon le réglage "Numéros d'épisode".
+    function itemLabel(item, seriesView) {
+        var mode = setting('labels');
+        if (mode === 'none') return '';
+        if (mode === 'episode') return item.IndexNumber != null ? 'E' + item.IndexNumber : '';
+        if (mode === 'full') return getEpisodeLabel(item);
+        return seriesView ? (item.IndexNumber != null ? 'E' + item.IndexNumber : '') : getEpisodeLabel(item);
+    }
+
+    // "fin vers 23:40" : reste de l'élément en cours + durée des éléments suivants de la file.
+    function endTimeText(queue) {
+        if (!setting('endTime') || !queue || !queue.length) return '';
+        var idx = currentQueueIndex();
+        if (idx < 0) return '';
+        var ticks = 0;
+        var cur = queue[idx];
+        if (cur && cur.RunTimeTicks) {
+            var pos = 0;
+            try {
+                var st = pm.getPlayerState(pm.getCurrentPlayer());
+                pos = (st && st.PlayState && st.PlayState.PositionTicks) || 0;
+            } catch (e) { /* ignore */ }
+            ticks += Math.max(0, cur.RunTimeTicks - pos);
+        }
+        for (var i = idx + 1; i < queue.length; i++) ticks += queue[i].RunTimeTicks || 0;
+        if (!ticks) return '';
+        var end = new Date(Date.now() + ticks / 10000);
+        var opts = { hour: '2-digit', minute: '2-digit' };
+        var when = end.toLocaleTimeString(getLang(), opts);
+        if (end.toDateString() !== new Date().toDateString()) {
+            when = end.toLocaleDateString(getLang(), { weekday: 'short' }) + ' ' + when;
+        }
+        return t('endsAt', when);
+    }
+
+    // Met à jour la partie "fin vers…" de l'en-tête sans redessiner la liste.
+    function updateEndTime(queue) {
+        if (!panel) return;
+        var el = panel.querySelector('.jfQueueEndTime');
+        if (!el) return;
+        var apply = function (q) {
+            var text = endTimeText(q);
+            el.textContent = text;
+        };
+        if (queue) apply(queue); else Promise.resolve(pm.getPlaylist()).then(apply, function () { /* ignore */ });
+    }
+
+    /* ---- fenêtre de réglages ---- */
+
+    var settingsUi = null;
+
+    function settingRow(name, control, desc, device) {
+        return '<div class="jfqRow">' +
+            '<div class="jfqRowText"><div class="jfqRowLabel">' + escapeHtml(t('s_' + name)) +
+            (device ? ' <span class="jfqDevice">(' + escapeHtml(t('thisDevice')) + ')</span>' : '') + '</div>' +
+            (desc ? '<div class="jfqRowDesc">' + escapeHtml(desc) + '</div>' : '') +
+            '</div><div class="jfqRowControl">' + control + '</div></div>';
+    }
+
+    function toggleRow(name) {
+        var desc = STRINGS.en['d_' + name] ? t('d_' + name) : '';
+        return settingRow(name, '<label class="jfqSwitch"><input type="checkbox" data-setting="' + name + '"><span></span></label>', desc, SETTINGS[name].device);
+    }
+
+    function selectRow(name) {
+        var opts = SETTINGS[name].values.map(function (v) {
+            return '<option value="' + v + '">' + escapeHtml(t('v_' + v)) + '</option>';
+        }).join('');
+        var desc = STRINGS.en['d_' + name] ? t('d_' + name) : '';
+        return settingRow(name, '<select class="jfqSelect" data-setting="' + name + '">' + opts + '</select>', desc, SETTINGS[name].device);
+    }
+
+    function buildSettingsUi() {
+        if (settingsUi) return settingsUi;
+        var overlay = document.createElement('div');
+        overlay.className = 'jfqSettingsOverlay hide';
+        overlay.innerHTML =
+            '<div class="jfqSettings" role="dialog" aria-modal="true">' +
+            '  <div class="jfqSettingsHeader">' +
+            '    <span class="material-icons playlist_play" aria-hidden="true"></span>' +
+            '    <span class="jfqSettingsTitle">' + escapeHtml(t('settingsTitle')) + '</span>' +
+            '    <button type="button" class="jfqClose paper-icon-button-light autoSize" title="' + escapeHtml(t('close')) + '"><span class="material-icons close" aria-hidden="true"></span></button>' +
+            '  </div>' +
+            '  <div class="jfqSettingsBody">' +
+            '    <h3>' + escapeHtml(t('secBehavior')) + '</h3><p class="jfqHint">' + escapeHtml(t('secBehaviorHint')) + '</p>' +
+            toggleRow('pendingQueue') + toggleRow('chronoCollections') + toggleRow('seasonFromHere') + toggleRow('playNextSingle') +
+            '    <h3>' + escapeHtml(t('secPanel')) + '</h3>' +
+            selectRow('defaultView') + selectRow('side') + selectRow('width') + selectRow('density') + selectRow('opacity') +
+            toggleRow('thumbnails') + selectRow('watched') + selectRow('labels') + toggleRow('endTime') +
+            '    <h3>' + escapeHtml(t('secMisc')) + '</h3>' +
+            settingRow('shortcut', '<input class="jfqKey" type="text" maxlength="1" autocomplete="off" spellcheck="false" data-setting="shortcut">',
+                t('d_shortcut') + ' ', false) +
+            toggleRow('prefetch') + toggleRow('confirmClear') +
+            '    <p class="jfqHint jfqPendingMax"></p>' +
+            '  </div>' +
+            '  <div class="jfqSettingsFooter">' +
+            '    <button type="button" class="jfqReset">' + escapeHtml(t('reset')) + '</button>' +
+            '    <button type="button" class="jfqDone">' + escapeHtml(t('done')) + '</button>' +
+            '  </div>' +
+            '</div>';
+
+        var close = function () { overlay.classList.add('hide'); };
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+        overlay.querySelector('.jfqClose').addEventListener('click', close);
+        overlay.querySelector('.jfqDone').addEventListener('click', close);
+        overlay.querySelector('.jfqReset').addEventListener('click', function () { resetSettings(); fillSettingsUi(); });
+        overlay.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { e.stopPropagation(); close(); }
+        });
+        overlay.addEventListener('change', function (e) {
+            var el = e.target;
+            var name = el.getAttribute && el.getAttribute('data-setting');
+            if (!name) return;
+            if (el.type === 'checkbox') setSetting(name, el.checked);
+            else if (name !== 'shortcut') setSetting(name, el.value);
+        });
+        // raccourci : la touche pressée remplace la valeur ; Retour arrière / Suppr = aucun
+        var key = overlay.querySelector('.jfqKey');
+        key.addEventListener('keydown', function (e) {
+            if (e.key === 'Tab' || e.key === 'Escape') return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key === 'Backspace' || e.key === 'Delete') key.value = '';
+            else if (e.key.length === 1 && e.key !== ' ') key.value = e.key.toLowerCase();
+            else return;
+            setSetting('shortcut', key.value);
+            showShortcutWarning();
+        });
+
+        document.body.appendChild(overlay);
+        settingsUi = overlay;
+        return overlay;
+    }
+
+    function showShortcutWarning() {
+        var key = settingsUi.querySelector('.jfqKey');
+        var desc = key.closest('.jfqRow').querySelector('.jfqRowDesc');
+        var taken = key.value && PLAYER_KEYS.indexOf(key.value) >= 0;
+        desc.textContent = t('d_shortcut') + (taken ? ' ' + t('shortcutTaken') : '');
+        desc.classList.toggle('jfqWarn', !!taken);
+    }
+
+    function fillSettingsUi() {
+        var inputs = settingsUi.querySelectorAll('[data-setting]');
+        for (var i = 0; i < inputs.length; i++) {
+            var el = inputs[i];
+            var v = setting(el.getAttribute('data-setting'));
+            if (el.type === 'checkbox') el.checked = !!v;
+            else el.value = v;
+        }
+        showShortcutWarning();
+        var fromServer = serverConfig && serverConfig.pendingMax;
+        settingsUi.querySelector('.jfqPendingMax').textContent = t(fromServer ? 'pendingMaxAdmin' : 'pendingMaxInfo', pendingMax());
+    }
+
+    function openSettings() {
+        buildSettingsUi();
+        Promise.all([ensureUserSettings(), ensureServerConfig()]).then(function () {
+            fillSettingsUi();
+            settingsUi.classList.remove('hide');
+            var first = settingsUi.querySelector('.jfqClose');
+            if (first) first.focus();
+        });
+    }
+
+    // Entrée dans Paramètres (menu de l'utilisateur), juste après « Lecture ».
+    function ensureSettingsEntry() {
+        var playback = document.querySelector('.lnkPlaybackPreferences');
+        if (!playback || !playback.parentNode || playback.parentNode.querySelector('.lnkPlayerQueuePreferences')) return;
+        var a = document.createElement('a');
+        a.href = '#';
+        a.className = 'emby-button lnkPlayerQueuePreferences listItem-border';
+        a.style.cssText = 'display:block;margin:0;padding:0';
+        a.innerHTML = '<div class="listItem"><span class="material-icons listItemIcon listItemIcon-transparent playlist_play" aria-hidden="true"></span>' +
+            '<div class="listItemBody"><div class="listItemBodyText">' + escapeHtml(t('settingsEntry')) + '</div></div></div>';
+        a.addEventListener('click', function (e) { e.preventDefault(); openSettings(); });
+        playback.parentNode.insertBefore(a, playback.nextSibling);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  9. Init                                                            */
     /* ------------------------------------------------------------------ */
 
     function init() {
@@ -1859,11 +2365,23 @@
         getWebpackRequire().then(waitForPlaybackManager).then(function (found) {
             pm = found;
             window.__jfQueueOsd.playbackManager = pm;
+            // diagnostic depuis la console : __jfQueueOsd.settings.get('labels'), .open()
+            window.__jfQueueOsd.settings = {
+                get: setting, open: openSettings, reload: function () { userPrefs = null; return ensureUserSettings(); },
+                state: function () { return { user: userPrefsFor, prefs: userPrefs && userPrefs.CustomPrefs, server: serverConfig }; }
+            };
             installBoxSetOrdering();
             installPendingQueue();
             loadPending();
             console.debug(TAG, 'v' + VERSION + ' – playbackManager found');
-            var start = function () { watchForOsd(); updatePendingUi(); };
+            var start = function () {
+                watchForOsd();
+                updatePendingUi();
+                ensureUserSettings();
+                ensureServerConfig();
+                // changement d'utilisateur (déconnexion / reconnexion) : relu au changement de page
+                window.addEventListener('hashchange', function () { ensureUserSettings(); });
+            };
             if (document.body) start();
             else document.addEventListener('DOMContentLoaded', start);
         }).catch(function () {

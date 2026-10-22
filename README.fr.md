@@ -46,6 +46,16 @@ Un bouton <img src="docs/playlist_play.svg" width="20" height="20" alt="" align=
 - Respecte le réglage Jellyfin « Lire automatiquement l'épisode suivant ».
 - En français ou en anglais selon la langue du navigateur.
 
+### Réglages
+
+**Paramètres → File de lecture (Player Queue)**, enregistrés avec votre compte pour vous suivre sur tous vos appareils :
+
+- **Comportement** : désactiver n'importe lequel des changements ci-dessus (file en attente, collections chronologiques, « Tout lire à partir d'ici », « Lire ensuite » limité à un épisode) pour retrouver le fonctionnement d'origine de Jellyfin.
+- **Panneau** : vue à l'ouverture (saisons ou file), emplacement, largeur, densité, opacité du fond, vignettes, épisodes déjà vus (normaux, grisés ou masqués), numéros d'épisode (E4, S14:E4 ou titre seul), heure de fin de la file.
+- **Divers** : raccourci clavier, préchargement des autres saisons, confirmation avant de vider la file en attente.
+
+L'administrateur du serveur fixe la taille maximale de la file en attente dans la page du plugin.
+
 <table>
   <tr>
     <td align="center" valign="top"><img src="docs/screen-menu.png" width="240" alt="Menu ⋮ : Lire ensuite, Ajouter à la fin, Retirer"><br><sub>Menu <code>⋮</code></sub></td>
@@ -131,7 +141,7 @@ Le script ne modifie pas Jellyfin : il retrouve le lecteur interne par son conte
 ## À venir
 
 - **Plus de langues** : l'interface existe aujourd'hui en français et en anglais. D'autres traductions sont prévues, et vous pourrez ajouter votre propre fichier de langue sans attendre une nouvelle version.
-- **Personnalisation** : des réglages pour tout le serveur côté administrateur (valeurs par défaut, limites, ce que les utilisateurs peuvent changer) et des réglages personnels pour chaque utilisateur (comportement du panneau, affichage), directement dans Jellyfin.
+- **Plus d'options pour l'administrateur** : des valeurs par défaut pour tout le serveur, et la possibilité de verrouiller les réglages qui chargent le serveur.
 
 Idées et demandes bienvenues dans les [issues](https://github.com/k1k4k/jellyfin-player-queue/issues).
 
