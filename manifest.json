@@ -118,6 +118,25 @@
     ]
   },
   {
+    "guid": "114272b4-a63b-4036-84be-843fc6552d61",
+    "name": "Jellyfin Pro Downloader",
+    "description": "Télécharger une série, un album ou une collection sans lancer des centaines de téléchargements d'un coup : fenêtre de sélection, gestionnaire de téléchargements, dossier, file d'attente ou ZIP. Download a series, album or collection without firing hundreds of downloads at once: picker, download manager, folder, queue or ZIP.",
+    "overview": "Téléchargements groupés maîtrisés : sélection, file d'attente, ZIP. Controlled bulk downloads: picker, queue, ZIP.",
+    "owner": "k1k4k",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-pro-downloader/main/icon.png",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "- \"Download all\" on a series, season, album or collection no longer starts every download at once: a window lets you pick seasons, episodes, albums or tracks, with their sizes and the total.\n- Also available on artists, playlists and folders.\n- Three ways to download: into a folder you choose, with everything organized (Chrome, Edge, Opera over HTTPS), as a queue (any browser, one file after another) or as ZIP files (one per season / album, or a single one), generated on the fly and resumable.\n- Subtitles, .nfo files, images and lyrics next to the media are included (can be unchecked).\n- A download manager (download icon at the top) shows progress and speed, with pause, resume, retry and cancel. Unfinished downloads are offered again at the next visit.\n- A single movie or episode downloads directly, without the window.\n- Server-side limits: simultaneous downloads per user and in total, speed per user. Each user's \"Allow media downloading\" permission is respected.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-pro-downloader/releases/download/v0.1.0/jellyfin-pro-downloader_0.1.0.0_jf12.zip",
+        "checksum": "5b62d9ff54d4ef381c0400f05eae2904",
+        "timestamp": "2026-10-31T09:27:33Z"
+      }
+    ]
+  },
+  {
     "guid": "541fb644-193a-4692-b8a4-2593356153a7",
     "name": "Jellyfin True Music Library",
     "description": "Un seul onglet « Artistes », avec seulement les artistes principaux des albums, singles et EP, choisis d'après les fournisseurs de métadonnées. A single \"Artists\" tab, listing only the main artists of albums, singles and EPs, chosen from your metadata providers.",
