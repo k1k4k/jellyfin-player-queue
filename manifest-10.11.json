@@ -19,6 +19,25 @@
     ]
   },
   {
+    "guid": "87c7944b-ed92-4cdf-9e97-02b45c8b1057",
+    "name": "Jellyfin Personal Library",
+    "description": "Chaque utilisateur choisit ce qu'il voit dans les bibliothèques partagées, type de contenu par type de contenu : tout, tout sauf ce qu'il masque, ou uniquement ce qu'il garde. Le masquage passe par le profil et vaut pour toutes les applications. Each user chooses what they see in shared libraries, content type by content type: everything, everything except what they hide, or only what they keep. Hiding goes through the user profile and applies to every app.",
+    "overview": "Une bibliothèque personnelle par utilisateur, dans les bibliothèques partagées. A personal library per user, inside shared libraries.",
+    "owner": "k1k4k",
+    "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-personal-library/main/icon.png",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "- Each user chooses what they see in shared libraries, content type by content type (music, movies, shows…): everything, everything except what they hide, or only what they keep. One setting covers every library of the same type.\n- \"My library\" window (button at the top, next to Search): mode per content type, search, browse folders, keep or hide an artist, an album, a folder, a movie, a show or a collection. Hidden content can still be found there to bring it back.\n- \"Hide from my library\" / \"Remove from my library\" in the ⋮ menu of an item.\n- Hiding goes through Jellyfin's own tag filter on the user profile: it applies everywhere (browsing, search, shuffle, instant mix, latest) and in every app, not only the web interface.\n- New albums, movies or episodes covered by a choice (a kept artist or folder) follow automatically after each scan; tags wiped by a metadata refresh are put back.\n- Admin page: who uses it, reset one user or everyone, turn self-service off. Uninstalling the plugin removes all its tags.\n- If the administrator already restricts a user with \"Allow items with tags\", the \"Only…\" mode is not offered to them, so it can never widen that restriction.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-personal-library/releases/download/v0.1.0/jellyfin-personal-library_0.1.0.0_jf10.zip",
+        "checksum": "ee93256a4e2d6bcfc5bb22bfdd5c0113",
+        "timestamp": "2026-11-01T21:30:01Z"
+      }
+    ]
+  },
+  {
     "guid": "ae203062-4b00-4c07-a7f6-83e69982d951",
     "name": "Jellyfin Player Queue",
     "description": "Bouton file de lecture dans le lecteur vidéo web : saison en cours, navigation entre saisons, lecture directe d'un épisode. Play queue button in the web video player: current season, season navigation, click-to-play.",
