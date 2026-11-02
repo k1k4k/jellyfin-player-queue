@@ -28,6 +28,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-personal-library/main/icon.png",
     "versions": [
       {
+        "version": "0.1.1.0",
+        "changelog": "- The \"My library\" button no longer shows over the video player.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-personal-library/releases/download/v0.1.1/jellyfin-personal-library_0.1.1.0_jf12.zip",
+        "checksum": "953f87075e010d3e37f4fea71b4f7f76",
+        "timestamp": "2026-11-02T00:03:42Z"
+      },
+      {
         "version": "0.1.0.0",
         "changelog": "- Each user chooses what they see in shared libraries, content type by content type (music, movies, shows…): everything, everything except what they hide, or only what they keep. One setting covers every library of the same type.\n- \"My library\" window (button at the top, next to Search): mode per content type, search, browse folders, keep or hide an artist, an album, a folder, a movie, a show or a collection. Hidden content can still be found there to bring it back.\n- \"Hide from my library\" / \"Remove from my library\" in the ⋮ menu of an item.\n- Hiding goes through Jellyfin's own tag filter on the user profile: it applies everywhere (browsing, search, shuffle, instant mix, latest) and in every app, not only the web interface.\n- New albums, movies or episodes covered by a choice (a kept artist or folder) follow automatically after each scan; tags wiped by a metadata refresh are put back.\n- Admin page: who uses it, reset one user or everyone, turn self-service off. Uninstalling the plugin removes all its tags.\n- If the administrator already restricts a user with \"Allow items with tags\", the \"Only…\" mode is not offered to them, so it can never widen that restriction.",
         "targetAbi": "12.0.0.0",
