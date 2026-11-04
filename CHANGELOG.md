@@ -2,6 +2,10 @@
 
 What's new in each version, as shown in Jellyfin's plugin catalog.
 
+## 0.9.1
+
+- "Play next" and "Add to play queue" from Jellyfin's own menus (library, Background Play mini player…) now add only the episode you picked while something is playing, instead of the rest of its series. Turn off the matching setting to get Jellyfin's original behavior back.
+
 ## 0.9.0
 
 - New settings page: Settings → Play queue (Player Queue). Your choices follow your account on every device.

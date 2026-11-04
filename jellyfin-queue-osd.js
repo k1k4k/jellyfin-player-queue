@@ -1,5 +1,5 @@
 /*!
- * Jellyfin Player Queue — v0.9.0
+ * Jellyfin Player Queue — v0.9.1
  * https://github.com/k1k4k/jellyfin-player-queue
  *
  * Ajoute une icône "file de lecture" dans le lecteur vidéo web de Jellyfin.
@@ -25,7 +25,7 @@
     'use strict';
 
     if (window.__jfQueueOsd) return;
-    var VERSION = '0.9.0';
+    var VERSION = '0.9.1';
     window.__jfQueueOsd = { version: VERSION };
 
     var TAG = '[PlayerQueue]';
@@ -869,7 +869,7 @@
             // comportement d'origine : l'épisode et tous ceux qui le suivent
             var plain = {};
             for (var p in item) if (Object.prototype.hasOwnProperty.call(item, p) && p !== 'PlaylistItemId') plain[p] = item[p];
-            return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [plain] }) : pm.queue({ items: [plain] }));
+            return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [plain], jfNative: true }) : pm.queue({ items: [plain], jfNative: true }));
         }
         var sp = isSyncPlay() && syncPlayApi();
         if (sp) {
@@ -886,7 +886,7 @@
             return Promise.resolve();
         }
         // lecteur distant (cast…) : API publique, avec son extension éventuelle
-        return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [copy] }) : pm.queue({ items: [copy] }));
+        return Promise.resolve(mode === 'next' ? pm.queueNext({ items: [copy], jfNative: true }) : pm.queue({ items: [copy], jfNative: true }));
     }
 
     function onActionClick(action, row) {
@@ -1784,27 +1784,65 @@
     function installPendingQueue() {
         if (!pm || pm.__jfPendingWrapped) return;
         var origCanQueue = pm.canQueue;
-        var origQueue = pm.queue;
-        var origQueueNext = pm.queueNext;
 
-        // réglage désactivé, ou lecture en cours : fonctions d'origine de Jellyfin
-        var native = function (self) {
-            if (!setting('pendingQueue')) return true;
-            try { return !!self.getCurrentPlayer(); } catch (e) { return false; }
-        };
+        // réglage désactivé, ou lecture en cours : fonction d'origine de Jellyfin
         pm.canQueue = function (item) {
-            if (native(this)) return origCanQueue.apply(this, arguments);
+            if (!setting('pendingQueue') || hasPlayer(this)) return origCanQueue.apply(this, arguments);
             return isQueueableType(item);
         };
-        pm.queue = function (options) {
-            if (native(this)) return origQueue.apply(this, arguments);
-            return addToPending(options, 'end');
-        };
-        pm.queueNext = function (options) {
-            if (native(this)) return origQueueNext.apply(this, arguments);
-            return addToPending(options, 'next');
-        };
+        interceptQueue('queue', 'end');
+        interceptQueue('queueNext', 'next');
         pm.__jfPendingWrapped = true;
+    }
+
+    function hasPlayer(self) {
+        try { return !!(self || pm).getCurrentPlayer(); } catch (e) { return false; }
+    }
+
+    // Épisode isolé ajouté depuis un menu de Jellyfin (bibliothèque, mini barre de
+    // Background Play…) : Jellyfin y ajouterait toute la suite de la série. Avec le réglage
+    // « un seul épisode », on n'ajoute que lui. Les ajouts par identifiants (commande à
+    // distance) et ceux que nous faisons nous-mêmes (jfNative) restent natifs.
+    function singleEpisode(options) {
+        if (!options || options.jfNative || !setting('playNextSingle')) return null;
+        var items = options.items;
+        return (items && items.length === 1 && items[0] && items[0].Type === 'Episode') ? items[0] : null;
+    }
+
+    // queue / queueNext enveloppés. SyncPlay les remplace à son activation (et remet les
+    // nôtres à la sortie) : comme pour play, toute nouvelle valeur affectée est enveloppée.
+    function interceptQueue(name, mode) {
+        var current = wrapQueue(pm[name], mode, true);
+        try {
+            Object.defineProperty(pm, name, {
+                configurable: true,
+                enumerable: true,
+                get: function () { return current; },
+                set: function (fn) { current = (typeof fn === 'function' && !fn.__jfQueueWrapper) ? wrapQueue(fn, mode, false) : fn; }
+            });
+        } catch (e) {
+            pm[name] = current;   // propriété non redéfinissable : au moins hors SyncPlay
+        }
+    }
+
+    // local : la fonction d'origine de Jellyfin (file en attente possible) ; sinon la
+    // version SyncPlay, qui envoie la demande au serveur du groupe.
+    function wrapQueue(orig, mode, local) {
+        var wrapper = function (options) {
+            if (local && isSyncPlay()) {
+                // SyncPlay applique ses mises à jour par cette fonction : on n'y touche pas
+                return orig.apply(this, arguments);
+            }
+            if (!hasPlayer(this)) {
+                if (local && setting('pendingQueue')) return addToPending(options, mode);
+                return orig.apply(this, arguments);
+            }
+            var ep = singleEpisode(options);
+            if (ep) return enqueueSingle(ep, mode);
+            return orig.apply(this, arguments);
+        };
+        wrapper.__jfQueueWrapper = true;
+        return wrapper;
     }
 
     /* ---- interface de la file en attente ---- */
@@ -1991,7 +2029,7 @@
                   s_pendingQueue: 'File en attente quand rien ne joue', d_pendingQueue: '« Ajouter à la file d\'attente » et « Lire ensuite » disponibles dans la bibliothèque même sans lecture en cours.',
                   s_chronoCollections: 'Collections dans l\'ordre chronologique', d_chronoCollections: 'Sinon, l\'ordre d\'ajout à la bibliothèque.',
                   s_seasonFromHere: '« Tout lire à partir d\'ici » démarre à la saison choisie', d_seasonFromHere: 'Sinon, Jellyfin repart du premier épisode de la série.',
-                  s_playNextSingle: '« Lire ensuite » n\'ajoute que l\'épisode choisi', d_playNextSingle: 'Sinon, Jellyfin ajoute aussi tous les épisodes qui le suivent.',
+                  s_playNextSingle: '« Lire ensuite » et « Ajouter à la file » n\'ajoutent que l\'épisode choisi', d_playNextSingle: 'Dans le panneau comme dans les menus de la bibliothèque. Sinon, Jellyfin ajoute aussi tous les épisodes qui le suivent.',
                   s_defaultView: 'Vue à l\'ouverture', v_seasons: 'Saisons', v_queue: 'File de lecture',
                   s_side: 'Emplacement', v_right: 'À droite', v_left: 'À gauche',
                   s_width: 'Largeur', v_narrow: 'Étroit', v_normal: 'Normal', v_wide: 'Large',
@@ -2014,7 +2052,7 @@
                   s_pendingQueue: 'Pending queue when nothing is playing', d_pendingQueue: '"Add to play queue" and "Play next" available in the library even when nothing is playing.',
                   s_chronoCollections: 'Collections in chronological order', d_chronoCollections: 'Otherwise, the order they were added to the library.',
                   s_seasonFromHere: '"Play all from here" starts at the chosen season', d_seasonFromHere: 'Otherwise, Jellyfin starts over from the first episode of the series.',
-                  s_playNextSingle: '"Play next" only adds the chosen episode', d_playNextSingle: 'Otherwise, Jellyfin also adds every episode after it.',
+                  s_playNextSingle: '"Play next" and "Add to queue" only add the chosen episode', d_playNextSingle: 'In the panel and in the library menus. Otherwise, Jellyfin also adds every episode after it.',
                   s_defaultView: 'View when opening', v_seasons: 'Seasons', v_queue: 'Play queue',
                   s_side: 'Position', v_right: 'Right', v_left: 'Left',
                   s_width: 'Width', v_narrow: 'Narrow', v_normal: 'Normal', v_wide: 'Wide',
