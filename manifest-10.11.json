@@ -55,6 +55,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-player-queue/main/icon.png",
     "versions": [
       {
+        "version": "0.9.1.0",
+        "changelog": "- \"Play next\" and \"Add to play queue\" from Jellyfin's own menus (library, Background Play mini player…) now add only the episode you picked while something is playing, instead of the rest of its series. Turn off the matching setting to get Jellyfin's original behavior back.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-player-queue/releases/download/v0.9.1/jellyfin-player-queue_0.9.1.0_jf10.zip",
+        "checksum": "2fbcb9aa40fcd56c1cc4f2ed4295ab50",
+        "timestamp": "2026-11-04T21:30:11Z"
+      },
+      {
         "version": "0.9.0.0",
         "changelog": "- New settings page: Settings → Play queue (Player Queue). Your choices follow your account on every device.\n- Turn off any of the plugin's changes to get Jellyfin's original behavior back (pending queue, chronological collections, \"Play all from here\", single-episode \"Play next\").\n- Customize the panel: view when opening, position, width, density, opacity, thumbnails, watched episodes, episode numbers.\n- Optional queue end time in the panel header (\"ends at 11:40 PM\").\n- Choose your keyboard shortcut, turn off season preloading, and get a confirmation before clearing the pending queue.\n- Admins can set the pending queue's maximum size on the plugin's page.",
         "targetAbi": "10.11.0.0",
