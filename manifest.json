@@ -28,6 +28,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-personal-library/main/icon.png",
     "versions": [
       {
+        "version": "0.1.2.0",
+        "changelog": "- With one content type in \"Only…\" mode, other types left on \"Everything\" could lose part of their items (movies, episodes) and every collection, which then kept loading forever. This happened on servers where Jellyfin no longer links some items to their library in its database; the plugin now relies on the library's root folders, as Jellyfin's own lists do.\n- \"My library\" search now finds every item of a library on those servers too.",
+        "targetAbi": "12.0.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-personal-library/releases/download/v0.1.2/jellyfin-personal-library_0.1.2.0_jf12.zip",
+        "checksum": "0e3c5c7c6a8fc6e496a7f7bf6c7a5031",
+        "timestamp": "2026-11-07T14:52:39Z"
+      },
+      {
         "version": "0.1.1.0",
         "changelog": "- The \"My library\" button no longer shows over the video player.",
         "targetAbi": "12.0.0.0",
