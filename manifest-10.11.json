@@ -28,6 +28,14 @@
     "imageUrl": "https://raw.githubusercontent.com/k1k4k/jellyfin-personal-library/main/icon.png",
     "versions": [
       {
+        "version": "0.1.3.0",
+        "changelog": "- Collections now open when the \"Collections\" library is disabled or missing: Jellyfin still groups movies into collections in the movie library, and with a content type in \"Only…\" mode those collections were left without the user's tag and kept loading forever. They now follow the \"Everything\" mode.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/k1k4k/jellyfin-personal-library/releases/download/v0.1.3/jellyfin-personal-library_0.1.3.0_jf10.zip",
+        "checksum": "2faeec72e3d64522f39c9c190049f5db",
+        "timestamp": "2026-11-07T15:50:50Z"
+      },
+      {
         "version": "0.1.2.0",
         "changelog": "- With one content type in \"Only…\" mode, other types left on \"Everything\" could lose part of their items (movies, episodes) and every collection, which then kept loading forever. This happened on servers where Jellyfin no longer links some items to their library in its database; the plugin now relies on the library's root folders, as Jellyfin's own lists do.\n- \"My library\" search now finds every item of a library on those servers too.",
         "targetAbi": "10.11.0.0",
